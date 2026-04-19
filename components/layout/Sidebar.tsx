@@ -9,6 +9,7 @@ import {
   FileText,
   Crosshair,
   LogOut,
+  Mail,
 } from "lucide-react";
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/intake", label: "Ingesta", icon: Upload },
   { href: "/deliverables", label: "Entregables", icon: FileText },
   { href: "/schedule", label: "Agenda", icon: Calendar },
+  { href: "/triage", label: "Correos", icon: Mail },
 ];
 
 export function Sidebar() {
