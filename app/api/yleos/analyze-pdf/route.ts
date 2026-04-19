@@ -34,31 +34,51 @@ export async function POST(request: NextRequest) {
       },
     },
     {
-      text: `Analiza este syllabus/programa académico y extrae TODOS los entregables, evaluaciones, tareas, informes, presentaciones y exámenes.
+      text: `Eres un analista académico táctico. Analiza este documento de evaluación/tarea universitaria y genera un PLAN DE TRABAJO completo para que un alumno lo resuelva paso a paso.
 
-Para cada uno devuelve un JSON con esta estructura exacta:
+Tu trabajo es:
+1. COMPRENDER qué pide la evaluación (qué hay que entregar, con qué formato, qué criterios de evaluación tiene)
+2. IDENTIFICAR cada entregable concreto que debe producir el alumno
+3. Para CADA entregable, proponer los PASOS DE TRABAJO necesarios para completarlo con calidad "Excelente" según la rúbrica
+
+Responde con este JSON exacto:
 {
+  "assignment": {
+    "title": "nombre de la evaluación/tarea",
+    "subject": "asignatura si se menciona",
+    "weight": 0,
+    "summary": "resumen ejecutivo de qué se pide en 2-3 líneas"
+  },
   "deliverables": [
     {
-      "title": "nombre del entregable",
+      "title": "nombre del entregable concreto que debe producirse",
       "type": "informe|presentacion|codigo|ensayo|examen|tarea",
       "weight": 0,
-      "description": "descripción breve de qué se debe hacer"
+      "description": "descripción clara de qué debe contener este entregable según las instrucciones y la rúbrica",
+      "steps": [
+        {
+          "title": "título del paso",
+          "description": "qué hacer concretamente en este paso para avanzar hacia el entregable"
+        }
+      ]
     }
-  ]
+  ],
+  "format_requirements": "requisitos de formato (tipo de archivo, fuente, márgenes, extensión, normas de citación, nombre del archivo, etc.)",
+  "evaluation_criteria": ["lista de los criterios de evaluación principales con su peso"]
 }
 
 Reglas:
 - "type" debe ser exactamente uno de: informe, presentacion, codigo, ensayo, examen, tarea
 - "weight" es el porcentaje sobre la nota final (0 si no se especifica)
-- NO inventes entregables que no estén en el documento
+- Los "steps" deben ser acciones CONCRETAS y EJECUTABLES, no genéricas. Cada paso es algo que el alumno puede hacer en una sesión de 25 minutos
+- Analiza la RÚBRICA si existe y usa los criterios para diseñar los pasos de forma que el alumno apunte a la nota máxima
+- NO inventes información que no esté en el documento
 - Responde SOLO con el JSON, sin texto adicional ni markdown`,
     },
   ]);
 
   const text = result.response.text();
 
-  // Parse JSON from response (handle possible markdown wrapping)
   let parsed;
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -66,7 +86,7 @@ Reglas:
     parsed = JSON.parse(jsonMatch[0]);
   } catch {
     return Response.json(
-      { error: "YLEOS no pudo extraer entregables del PDF", raw: text },
+      { error: "YLEOS no pudo analizar el PDF", raw: text },
       { status: 422 }
     );
   }

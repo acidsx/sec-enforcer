@@ -11,6 +11,11 @@ import {
   Upload,
   PenLine,
   Bot,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+  Target,
 } from "lucide-react";
 
 interface Subject {
@@ -19,12 +24,37 @@ interface Subject {
   code: string | null;
 }
 
+interface StepForm {
+  title: string;
+  description: string;
+}
+
 interface DeliverableForm {
   title: string;
   type: string;
   dueDate: string;
   weight: number;
   description: string;
+  steps: StepForm[];
+  expanded: boolean;
+}
+
+interface AnalysisResult {
+  assignment: {
+    title: string;
+    subject: string;
+    weight: number;
+    summary: string;
+  };
+  deliverables: {
+    title: string;
+    type: string;
+    weight: number;
+    description: string;
+    steps: StepForm[];
+  }[];
+  format_requirements: string;
+  evaluation_criteria: string[];
 }
 
 const emptyDeliverable: DeliverableForm = {
@@ -33,6 +63,8 @@ const emptyDeliverable: DeliverableForm = {
   dueDate: "",
   weight: 0,
   description: "",
+  steps: [],
+  expanded: true,
 };
 
 const typeOptions = [
@@ -55,8 +87,8 @@ export default function IntakePage() {
   const [subjectLoading, setSubjectLoading] = useState(false);
 
   const [mode, setMode] = useState<"choose" | "pdf" | "manual">("choose");
-  const [file, setFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
 
   const [deliverables, setDeliverables] = useState<DeliverableForm[]>([]);
   const [saving, setSaving] = useState(false);
@@ -95,7 +127,6 @@ export default function IntakePage() {
   }
 
   async function handlePdfAnalyze(selectedFile: File) {
-    setFile(selectedFile);
     setAnalyzing(true);
     setError(null);
 
@@ -120,6 +151,8 @@ export default function IntakePage() {
         return;
       }
 
+      setAnalysis(data);
+
       if (data.deliverables?.length) {
         setDeliverables(
           data.deliverables.map((d: any) => ({
@@ -128,6 +161,8 @@ export default function IntakePage() {
             dueDate: "",
             weight: d.weight || 0,
             description: d.description || "",
+            steps: d.steps || [],
+            expanded: false,
           }))
         );
       }
@@ -139,7 +174,7 @@ export default function IntakePage() {
   function updateDeliverable(
     index: number,
     field: string,
-    value: string | number
+    value: string | number | boolean
   ) {
     setDeliverables((prev) =>
       prev.map((d, i) => (i === index ? { ...d, [field]: value } : d))
@@ -147,7 +182,7 @@ export default function IntakePage() {
   }
 
   function addDeliverable() {
-    setDeliverables((prev) => [...prev, { ...emptyDeliverable }]);
+    setDeliverables((prev) => [...prev, { ...emptyDeliverable, steps: [] }]);
   }
 
   function removeDeliverable(index: number) {
@@ -172,6 +207,7 @@ export default function IntakePage() {
 
     setSaving(true);
 
+    // Save deliverables
     const saveRes = await fetch("/api/yleos/ingest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -197,21 +233,51 @@ export default function IntakePage() {
     setSaving(false);
     setFragmenting(true);
 
-    for (const d of saveData.deliverables) {
-      const fragRes = await fetch("/api/yleos/fragment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deliverableId: d.id,
-          title: d.title,
-          dueDate: d.due_date,
-        }),
-      });
-      if (!fragRes.ok) {
-        const fragData = await fragRes.json();
-        setError(fragData.error);
-        setFragmenting(false);
-        return;
+    // Fragment each deliverable — use PDF-extracted steps if available
+    for (let i = 0; i < saveData.deliverables.length; i++) {
+      const d = saveData.deliverables[i];
+      const pdfSteps = deliverables[i]?.steps;
+
+      if (pdfSteps && pdfSteps.length > 0) {
+        // Save YLEOS-analyzed steps directly
+        const stepsToSave = pdfSteps.map((s: StepForm, idx: number) => ({
+          deliverable_id: d.id,
+          user_id: d.user_id,
+          step_number: idx + 1,
+          title: s.title,
+          description: s.description,
+          scheduled_date: distributeDate(d.due_date, idx, pdfSteps.length),
+        }));
+
+        const stepRes = await fetch("/api/fragment-steps", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ steps: stepsToSave, deliverableId: d.id }),
+        });
+
+        if (!stepRes.ok) {
+          // Fallback to mock fragmentation
+          await fetch("/api/yleos/fragment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              deliverableId: d.id,
+              title: d.title,
+              dueDate: d.due_date,
+            }),
+          });
+        }
+      } else {
+        // Use mock fragmentation
+        await fetch("/api/yleos/fragment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deliverableId: d.id,
+            title: d.title,
+            dueDate: d.due_date,
+          }),
+        });
       }
     }
 
@@ -219,23 +285,42 @@ export default function IntakePage() {
     setDone(true);
   }
 
+  function distributeDate(
+    dueDate: string,
+    stepIndex: number,
+    totalSteps: number
+  ): string {
+    const due = new Date(dueDate);
+    const now = new Date();
+    const totalDays = Math.max(
+      1,
+      Math.floor((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    );
+    const dayOffset = Math.floor(
+      (totalDays * (stepIndex + 1)) / totalSteps
+    );
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    return d.toISOString().split("T")[0];
+  }
+
   function resetAll() {
     setDeliverables([]);
-    setFile(null);
+    setAnalysis(null);
     setMode("choose");
     setDone(false);
     setError(null);
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
           Ingesta de Entregables
         </h1>
         <p className="mt-1 text-muted">
-          Sube un syllabus PDF o define entregables manualmente. YLEOS los
-          fragmentará en pasos ejecutables.
+          Sube un PDF de evaluación o define entregables manualmente. YLEOS
+          analiza, planifica y fragmenta.
         </p>
       </div>
 
@@ -307,14 +392,14 @@ export default function IntakePage() {
             <div className="text-center">
               <p className="font-semibold">Subir PDF</p>
               <p className="text-xs text-muted mt-1">
-                YLEOS analiza tu syllabus y extrae entregables
+                YLEOS analiza tu evaluación, identifica tareas y propone un plan
               </p>
             </div>
           </button>
           <button
             onClick={() => {
               setMode("manual");
-              setDeliverables([{ ...emptyDeliverable }]);
+              setDeliverables([{ ...emptyDeliverable, steps: [] }]);
             }}
             className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface p-8 hover:border-accent hover:bg-accent/5 transition"
           >
@@ -322,132 +407,239 @@ export default function IntakePage() {
             <div className="text-center">
               <p className="font-semibold">Entrada Manual</p>
               <p className="text-xs text-muted mt-1">
-                Define entregables con fechas manualmente
+                Define entregables y pasos manualmente
               </p>
             </div>
           </button>
         </div>
       )}
 
-      {/* PDF Mode */}
-      {selectedSubject && mode === "pdf" && !done && deliverables.length === 0 && (
-        <div className="space-y-4">
-          <PdfDropzone onFileSelected={handlePdfAnalyze} />
+      {/* PDF Mode - Upload */}
+      {selectedSubject &&
+        mode === "pdf" &&
+        !done &&
+        deliverables.length === 0 && (
+          <div className="space-y-4">
+            <PdfDropzone onFileSelected={handlePdfAnalyze} />
 
-          {analyzing && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
-              <Bot className="h-5 w-5 text-accent animate-pulse" />
-              <div>
-                <p className="font-medium text-sm">YLEOS analizando PDF...</p>
-                <p className="text-xs text-muted">
-                  Extrayendo entregables del syllabus
-                </p>
+            {analyzing && (
+              <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 p-4">
+                <Bot className="h-5 w-5 text-accent animate-pulse" />
+                <div className="flex-1">
+                  <p className="font-medium text-sm">
+                    YLEOS analizando evaluación...
+                  </p>
+                  <p className="text-xs text-muted">
+                    Identificando tareas, criterios de evaluación y generando
+                    plan de trabajo
+                  </p>
+                </div>
+                <Loader2 className="h-4 w-4 animate-spin text-accent" />
               </div>
-              <Loader2 className="h-4 w-4 animate-spin text-muted ml-auto" />
+            )}
+
+            {error && (
+              <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+          </div>
+        )}
+
+      {/* Analysis summary (after PDF analysis) */}
+      {analysis && !done && (
+        <div className="rounded-xl border border-accent/30 bg-accent/5 p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <Bot className="h-5 w-5 text-accent mt-0.5 shrink-0" />
+            <div>
+              <p className="font-bold text-sm">
+                YLEOS — Análisis de Evaluación
+              </p>
+              <p className="text-lg font-semibold mt-1">
+                {analysis.assignment.title}
+              </p>
+              {analysis.assignment.subject && (
+                <p className="text-xs text-muted">
+                  {analysis.assignment.subject}
+                  {analysis.assignment.weight > 0 &&
+                    ` · Ponderación: ${analysis.assignment.weight}%`}
+                </p>
+              )}
+              <p className="text-sm text-muted mt-2">
+                {analysis.assignment.summary}
+              </p>
+            </div>
+          </div>
+
+          {analysis.format_requirements && (
+            <div className="flex gap-2 text-xs bg-surface rounded-lg px-3 py-2">
+              <FileText className="h-3.5 w-3.5 text-muted shrink-0 mt-0.5" />
+              <span className="text-muted">
+                {analysis.format_requirements}
+              </span>
             </div>
           )}
 
-          {error && (
-            <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+          {analysis.evaluation_criteria &&
+            analysis.evaluation_criteria.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1">
+                  <Target className="h-3 w-3" />
+                  Criterios de Evaluación
+                </p>
+                <div className="grid gap-1">
+                  {analysis.evaluation_criteria.map((c, i) => (
+                    <p key={i} className="text-xs text-muted flex gap-1.5">
+                      <span className="text-accent">·</span>
+                      {c}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
       )}
 
-      {/* Deliverables editor (both modes) */}
+      {/* Deliverables editor */}
       {selectedSubject && deliverables.length > 0 && !done && (
         <div className="space-y-4">
           {mode === "pdf" && (
             <div className="flex items-center gap-2 text-green-400 text-sm">
               <CheckCircle className="h-4 w-4" />
               <span>
-                YLEOS detectó {deliverables.length} entregable
-                {deliverables.length !== 1 ? "s" : ""}. Define las fechas de
-                entrega:
+                Plan de trabajo generado: {deliverables.length} entregable
+                {deliverables.length !== 1 ? "s" : ""} con{" "}
+                {deliverables.reduce((acc, d) => acc + d.steps.length, 0)} pasos.
+                Define las fechas de entrega:
               </span>
             </div>
           )}
 
-          <h2 className="text-lg font-semibold">Entregables</h2>
+          <h2 className="text-lg font-semibold">Entregables y Plan de Trabajo</h2>
 
           {deliverables.map((d, i) => (
             <div
               key={i}
-              className="rounded-xl border border-border bg-surface p-4 space-y-3"
+              className="rounded-xl border border-border bg-surface overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Entregable {i + 1}
-                </span>
-                {deliverables.length > 1 && (
-                  <button
-                    onClick={() => removeDeliverable(i)}
-                    className="text-muted hover:text-red-400 transition"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              <input
-                type="text"
-                placeholder="Título del entregable"
-                value={d.title}
-                onChange={(e) => updateDeliverable(i, "title", e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
-                required
-              />
-
-              <div className="grid grid-cols-3 gap-3">
-                <select
-                  value={d.type}
-                  onChange={(e) => updateDeliverable(i, "type", e.target.value)}
-                  className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
-                >
-                  {typeOptions.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+              {/* Header */}
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Entregable {i + 1}
+                  </span>
+                  <div className="flex gap-2">
+                    {d.steps.length > 0 && (
+                      <button
+                        onClick={() =>
+                          updateDeliverable(i, "expanded", !d.expanded)
+                        }
+                        className="text-muted hover:text-foreground transition text-xs flex items-center gap-1"
+                      >
+                        <ClipboardList className="h-3.5 w-3.5" />
+                        {d.steps.length} pasos
+                        {d.expanded ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+                    )}
+                    {deliverables.length > 1 && (
+                      <button
+                        onClick={() => removeDeliverable(i)}
+                        className="text-muted hover:text-red-400 transition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 <input
-                  type="date"
-                  value={d.dueDate}
-                  min={today}
+                  type="text"
+                  placeholder="Título del entregable"
+                  value={d.title}
                   onChange={(e) =>
-                    updateDeliverable(i, "dueDate", e.target.value)
+                    updateDeliverable(i, "title", e.target.value)
                   }
-                  className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
                   required
                 />
 
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="Peso %"
-                    value={d.weight || ""}
+                <div className="grid grid-cols-3 gap-3">
+                  <select
+                    value={d.type}
                     onChange={(e) =>
-                      updateDeliverable(i, "weight", Number(e.target.value))
+                      updateDeliverable(i, "type", e.target.value)
                     }
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                  >
+                    {typeOptions.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={d.dueDate}
+                    min={today}
+                    onChange={(e) =>
+                      updateDeliverable(i, "dueDate", e.target.value)
+                    }
+                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                    required
                   />
-                  <span className="text-xs text-muted">%</span>
+
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="Peso %"
+                      value={d.weight || ""}
+                      onChange={(e) =>
+                        updateDeliverable(i, "weight", Number(e.target.value))
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+                    />
+                    <span className="text-xs text-muted">%</span>
+                  </div>
                 </div>
+
+                {d.description && (
+                  <p className="text-xs text-muted bg-surface-2 rounded-lg px-3 py-2">
+                    {d.description}
+                  </p>
+                )}
               </div>
 
-              <textarea
-                placeholder="Descripción (opcional)"
-                value={d.description}
-                onChange={(e) =>
-                  updateDeliverable(i, "description", e.target.value)
-                }
-                rows={2}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none resize-none"
-              />
+              {/* Steps (expandable) */}
+              {d.expanded && d.steps.length > 0 && (
+                <div className="border-t border-border bg-surface-2/50 px-4 py-3 space-y-2">
+                  <p className="text-[10px] font-semibold text-muted uppercase tracking-widest">
+                    Plan de Trabajo
+                  </p>
+                  {d.steps.map((step, si) => (
+                    <div
+                      key={si}
+                      className="flex gap-3 rounded-lg bg-surface px-3 py-2.5"
+                    >
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/10 text-accent text-xs font-bold shrink-0 mt-0.5">
+                        {si + 1}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{step.title}</p>
+                        <p className="text-xs text-muted mt-0.5">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
@@ -480,12 +672,12 @@ export default function IntakePage() {
               {saving || fragmenting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {saving ? "Guardando..." : "Fragmentando..."}
+                  {saving ? "Guardando..." : "Creando plan de trabajo..."}
                 </>
               ) : (
                 <>
                   <Layers className="h-4 w-4" />
-                  Guardar y Fragmentar
+                  Guardar y Crear Plan
                 </>
               )}
             </button>
@@ -493,30 +685,18 @@ export default function IntakePage() {
         </div>
       )}
 
-      {/* Manual mode with no deliverables yet */}
-      {selectedSubject &&
-        mode === "manual" &&
-        deliverables.length === 0 &&
-        !done && (
-          <button
-            onClick={addDeliverable}
-            className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-sm font-medium text-muted hover:border-muted hover:text-foreground transition w-full justify-center"
-          >
-            <Plus className="h-4 w-4" />
-            Agregar entregable
-          </button>
-        )}
-
-      {/* Done state */}
       {done && (
         <div className="rounded-xl border border-border bg-surface p-8 text-center space-y-3">
           <CheckCircle className="h-10 w-10 text-green-400 mx-auto" />
-          <p className="font-semibold">Entregables creados y fragmentados</p>
+          <p className="font-semibold">Plan de trabajo creado</p>
           <p className="text-sm text-muted">
             Ve a la Agenda para ver tus pasos programados e iniciar un bloque de
             enfoque con YLEOS.
           </p>
-          <button onClick={resetAll} className="text-sm text-accent hover:underline">
+          <button
+            onClick={resetAll}
+            className="text-sm text-accent hover:underline"
+          >
             Agregar más entregables
           </button>
         </div>
