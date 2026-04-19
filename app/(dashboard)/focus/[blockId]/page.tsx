@@ -5,6 +5,7 @@ import { QuarantineScreen } from "@/components/focus/QuarantineScreen";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import type { FocusBlock, FragmentStep } from "@/types/database";
+import type { SessionContext } from "@/lib/yleos/gemini";
 
 export default function FocusBlockPage({
   params,
@@ -15,6 +16,9 @@ export default function FocusBlockPage({
   const router = useRouter();
   const [block, setBlock] = useState<FocusBlock | null>(null);
   const [step, setStep] = useState<FragmentStep | null>(null);
+  const [sessionContext, setSessionContext] = useState<SessionContext | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +31,7 @@ export default function FocusBlockPage({
       if (startRes.ok) {
         setBlock(startData.block);
 
-        // Load associated step if any
+        // Load associated step and deliverable context
         if (startData.block.step_id) {
           const blocksRes = await fetch("/api/focus-blocks");
           const blocksData = await blocksRes.json();
@@ -36,6 +40,36 @@ export default function FocusBlockPage({
           );
           if (fullBlock?.fragment_step) {
             setStep(fullBlock.fragment_step);
+
+            // Fetch deliverable info for YLEOS context
+            const delRes = await fetch("/api/deliverables");
+            const delData = await delRes.json();
+            const deliverable = delData.deliverables?.find(
+              (d: any) => d.id === fullBlock.fragment_step.deliverable_id
+            );
+
+            if (deliverable) {
+              // Calculate progress
+              const totalSteps = deliverable.fragment_steps?.length || 1;
+              const completedSteps =
+                deliverable.fragment_steps?.filter(
+                  (s: any) => s.completed
+                ).length || 0;
+              const progress = Math.round(
+                (completedSteps / totalSteps) * 100
+              );
+
+              setSessionContext({
+                stepTitle: fullBlock.fragment_step.title,
+                stepDescription:
+                  fullBlock.fragment_step.description || null,
+                deliverableTitle: deliverable.title,
+                deliverableType: deliverable.type,
+                dueDate: deliverable.due_date,
+                progress,
+                subjectName: deliverable.subject?.name || "Sin asignatura",
+              });
+            }
           }
         }
       }
@@ -58,6 +92,7 @@ export default function FocusBlockPage({
       step={step}
       durationMinutes={block?.planned_minutes || 25}
       onEnd={() => router.push("/")}
+      sessionContext={sessionContext}
     />
   );
 }
