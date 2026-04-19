@@ -55,10 +55,17 @@ Responde con este JSON exacto:
       "type": "informe|presentacion|codigo|ensayo|examen|tarea",
       "weight": 0,
       "description": "descripción clara de qué debe contener este entregable según las instrucciones y la rúbrica",
-      "steps": [
+      "fases": [
         {
-          "title": "título del paso",
-          "description": "qué hacer concretamente en este paso para avanzar hacia el entregable"
+          "nombre": "nombre de la fase (ej: Investigación, Redacción, Revisión)",
+          "tipo": "research|draft|review|practice|analysis|delivery|general",
+          "orden": 1,
+          "steps": [
+            {
+              "title": "título del paso",
+              "description": "qué hacer concretamente en este paso"
+            }
+          ]
         }
       ]
     }
@@ -70,8 +77,10 @@ Responde con este JSON exacto:
 Reglas:
 - "type" debe ser exactamente uno de: informe, presentacion, codigo, ensayo, examen, tarea
 - "weight" es el porcentaje sobre la nota final (0 si no se especifica)
-- Los "steps" deben ser acciones CONCRETAS y EJECUTABLES, no genéricas. Cada paso es algo que el alumno puede hacer en una sesión de 25 minutos
+- Agrupa los pasos en 3-5 FASES según el tipo de entregable (ej: Ensayo → Investigación, Estructuración, Redacción, Revisión. Lab → Lectura, Diseño, Ejecución, Análisis, Informe)
+- Los "steps" dentro de cada fase deben ser acciones CONCRETAS y EJECUTABLES. Cada paso es algo que el alumno puede hacer en una sesión de 25 minutos
 - Analiza la RÚBRICA si existe y usa los criterios para diseñar los pasos de forma que el alumno apunte a la nota máxima
+- "tipo" de fase debe ser uno de: research, draft, review, practice, analysis, delivery, general
 - NO inventes información que no esté en el documento
 - Responde SOLO con el JSON, sin texto adicional ni markdown`,
     },

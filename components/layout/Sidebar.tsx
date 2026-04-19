@@ -7,6 +7,8 @@ import {
   Upload,
   Calendar,
   FileText,
+  BookOpen,
+  Trophy,
   Crosshair,
   LogOut,
   Mail,
@@ -14,9 +16,11 @@ import {
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/asignaturas", label: "Asignaturas", icon: BookOpen },
   { href: "/intake", label: "Ingesta", icon: Upload },
   { href: "/deliverables", label: "Entregables", icon: FileText },
   { href: "/schedule", label: "Agenda", icon: Calendar },
+  { href: "/logros", label: "Logros", icon: Trophy },
   { href: "/triage", label: "Correos", icon: Mail },
 ];
 
@@ -31,7 +35,6 @@ export function Sidebar() {
     router.refresh();
   }
 
-  // Determine active path — dashboard route group maps "/" to "(dashboard)"
   function isActive(href: string) {
     if (href === "/") return pathname === "/" || pathname === "";
     return pathname.startsWith(href);
@@ -39,7 +42,6 @@ export function Sidebar() {
 
   return (
     <aside className="flex flex-col w-64 border-r border-border bg-surface shrink-0">
-      {/* Logo */}
       <div className="flex items-center gap-2 px-5 py-5 border-b border-border">
         <Crosshair className="h-6 w-6 text-accent" />
         <span className="text-xl font-black tracking-widest text-accent">
@@ -47,7 +49,6 @@ export function Sidebar() {
         </span>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => (
           <button
@@ -65,7 +66,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Logout */}
       <div className="px-3 py-4 border-t border-border">
         <button
           onClick={handleLogout}

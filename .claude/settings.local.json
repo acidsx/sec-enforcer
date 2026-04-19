@@ -13,7 +13,9 @@
       "Bash(export BASE=\"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer\")",
       "Bash(mkdir -p 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(auth\\)/login' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/focus/[blockId]' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/deliverables' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/intake' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/schedule' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/yleos/ingest' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/yleos/fragment' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/focus-blocks/[id]/start' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/focus-blocks/[id]/checkin' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/focus-blocks/[id]/end' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/components/focus' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/components/intake' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/components/layout' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/lib/supabase' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/lib/yleos' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/hooks' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/types')",
       "Bash(gh auth *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/asignaturas/[id]\")",
+      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/entregables/[id]\")"
     ]
   }
 }
