@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
+/* Light mode only — no dark mode */
 :root {
-  /* Legacy tokens (existing pages use these) */
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  /* Legacy tokens (existing components) */
+  --background: #F5F1EA;
+  --foreground: #1F1D1A;
   --accent: #3E5C76;
   --accent-dim: #2E4A63;
-  --surface: #171717;
-  --surface-2: #262626;
-  --border: #333333;
-  --muted: #a3a3a3;
+  --surface: #FFFFFF;
+  --surface-2: #EAE4D9;
+  --border: #EAE4D9;
+  --muted: #8A8478;
 
-  /* Tutor mode palette */
+  /* v4 palette */
   --bg-canvas: #F5F1EA;
   --bg-surface: #FFFFFF;
   --bg-muted: #EAE4D9;
@@ -25,6 +26,8 @@
   --urgent: #A8483A;
   --focus-bg: #F0ECE3;
   --focus-surface: #FAF7F1;
+  --medal-gold: #B8924A;
+  --medal-silver: #8A8478;
 }
 
 @theme inline {
@@ -41,8 +44,8 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
@@ -52,10 +55,10 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: var(--bg-canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--bg-muted);
   border-radius: 3px;
 }
