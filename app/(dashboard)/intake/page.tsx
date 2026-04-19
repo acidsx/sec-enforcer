@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Loader2, Layers, CheckCircle } from "lucide-react";
+import { PdfDropzone } from "@/components/intake/PdfDropzone";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  Layers,
+  CheckCircle,
+  Upload,
+  PenLine,
+  Bot,
+} from "lucide-react";
 
 interface Subject {
   id: string;
@@ -34,6 +44,8 @@ const typeOptions = [
   { value: "tarea", label: "Tarea" },
 ];
 
+const today = new Date().toISOString().split("T")[0];
+
 export default function IntakePage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -42,12 +54,13 @@ export default function IntakePage() {
   const [newCode, setNewCode] = useState("");
   const [subjectLoading, setSubjectLoading] = useState(false);
 
-  const [deliverables, setDeliverables] = useState<DeliverableForm[]>([
-    { ...emptyDeliverable },
-  ]);
+  const [mode, setMode] = useState<"choose" | "pdf" | "manual">("choose");
+  const [file, setFile] = useState<File | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const [deliverables, setDeliverables] = useState<DeliverableForm[]>([]);
   const [saving, setSaving] = useState(false);
   const [fragmenting, setFragmenting] = useState(false);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,7 +94,53 @@ export default function IntakePage() {
     setSubjectLoading(false);
   }
 
-  function updateDeliverable(index: number, field: string, value: string | number) {
+  async function handlePdfAnalyze(selectedFile: File) {
+    setFile(selectedFile);
+    setAnalyzing(true);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+
+      const res = await fetch("/api/yleos/analyze-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileBase64: base64,
+          fileName: selectedFile.name,
+          mimeType: "application/pdf",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Error al analizar el PDF");
+        setAnalyzing(false);
+        return;
+      }
+
+      if (data.deliverables?.length) {
+        setDeliverables(
+          data.deliverables.map((d: any) => ({
+            title: d.title || "",
+            type: d.type || "tarea",
+            dueDate: "",
+            weight: d.weight || 0,
+            description: d.description || "",
+          }))
+        );
+      }
+      setAnalyzing(false);
+    };
+    reader.readAsDataURL(selectedFile);
+  }
+
+  function updateDeliverable(
+    index: number,
+    field: string,
+    value: string | number
+  ) {
     setDeliverables((prev) =>
       prev.map((d, i) => (i === index ? { ...d, [field]: value } : d))
     );
@@ -98,24 +157,25 @@ export default function IntakePage() {
   async function handleSaveAndFragment() {
     if (!selectedSubject) return;
     setError(null);
-    setSaving(true);
 
-    // Validate
     const valid = deliverables.every((d) => d.title && d.dueDate);
     if (!valid) {
       setError("Cada entregable necesita título y fecha de entrega.");
-      setSaving(false);
       return;
     }
 
-    // Save deliverables via ingest API (uses mock to generate, but we override with manual data)
-    // Instead, save directly to Supabase via a new approach
+    const pastDate = deliverables.find((d) => d.dueDate < today);
+    if (pastDate) {
+      setError("Las fechas de entrega no pueden estar en el pasado.");
+      return;
+    }
+
+    setSaving(true);
+
     const saveRes = await fetch("/api/yleos/ingest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        fileName: "manual-entry",
-        fileBase64: "manual",
         subjectId: selectedSubject,
         manualDeliverables: deliverables.map((d) => ({
           title: d.title,
@@ -134,14 +194,10 @@ export default function IntakePage() {
       return;
     }
 
-    const ids = saveData.deliverables.map((d: any) => d.id);
-    setSavedIds(ids);
     setSaving(false);
-
-    // Now fragment each deliverable
     setFragmenting(true);
-    for (let i = 0; i < saveData.deliverables.length; i++) {
-      const d = saveData.deliverables[i];
+
+    for (const d of saveData.deliverables) {
       const fragRes = await fetch("/api/yleos/fragment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,6 +219,14 @@ export default function IntakePage() {
     setDone(true);
   }
 
+  function resetAll() {
+    setDeliverables([]);
+    setFile(null);
+    setMode("choose");
+    setDone(false);
+    setError(null);
+  }
+
   return (
     <div className="max-w-2xl space-y-8">
       <div>
@@ -170,8 +234,8 @@ export default function IntakePage() {
           Ingesta de Entregables
         </h1>
         <p className="mt-1 text-muted">
-          Define tus entregables con fechas de entrega. YLEOS los fragmentará en
-          pasos ejecutables.
+          Sube un syllabus PDF o define entregables manualmente. YLEOS los
+          fragmentará en pasos ejecutables.
         </p>
       </div>
 
@@ -232,9 +296,79 @@ export default function IntakePage() {
         )}
       </div>
 
-      {/* Deliverables form */}
-      {selectedSubject && !done && (
+      {/* Mode selection */}
+      {selectedSubject && mode === "choose" && !done && (
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => setMode("pdf")}
+            className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface p-8 hover:border-accent hover:bg-accent/5 transition"
+          >
+            <Upload className="h-8 w-8 text-accent" />
+            <div className="text-center">
+              <p className="font-semibold">Subir PDF</p>
+              <p className="text-xs text-muted mt-1">
+                YLEOS analiza tu syllabus y extrae entregables
+              </p>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setMode("manual");
+              setDeliverables([{ ...emptyDeliverable }]);
+            }}
+            className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface p-8 hover:border-accent hover:bg-accent/5 transition"
+          >
+            <PenLine className="h-8 w-8 text-accent" />
+            <div className="text-center">
+              <p className="font-semibold">Entrada Manual</p>
+              <p className="text-xs text-muted mt-1">
+                Define entregables con fechas manualmente
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* PDF Mode */}
+      {selectedSubject && mode === "pdf" && !done && deliverables.length === 0 && (
         <div className="space-y-4">
+          <PdfDropzone onFileSelected={handlePdfAnalyze} />
+
+          {analyzing && (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
+              <Bot className="h-5 w-5 text-accent animate-pulse" />
+              <div>
+                <p className="font-medium text-sm">YLEOS analizando PDF...</p>
+                <p className="text-xs text-muted">
+                  Extrayendo entregables del syllabus
+                </p>
+              </div>
+              <Loader2 className="h-4 w-4 animate-spin text-muted ml-auto" />
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Deliverables editor (both modes) */}
+      {selectedSubject && deliverables.length > 0 && !done && (
+        <div className="space-y-4">
+          {mode === "pdf" && (
+            <div className="flex items-center gap-2 text-green-400 text-sm">
+              <CheckCircle className="h-4 w-4" />
+              <span>
+                YLEOS detectó {deliverables.length} entregable
+                {deliverables.length !== 1 ? "s" : ""}. Define las fechas de
+                entrega:
+              </span>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold">Entregables</h2>
 
           {deliverables.map((d, i) => (
@@ -281,6 +415,7 @@ export default function IntakePage() {
                 <input
                   type="date"
                   value={d.dueDate}
+                  min={today}
                   onChange={(e) =>
                     updateDeliverable(i, "dueDate", e.target.value)
                   }
@@ -330,26 +465,49 @@ export default function IntakePage() {
             </p>
           )}
 
-          <button
-            onClick={handleSaveAndFragment}
-            disabled={saving || fragmenting}
-            className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-semibold text-white hover:bg-accent-dim transition disabled:opacity-50"
-          >
-            {saving || fragmenting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {saving ? "Guardando..." : "Fragmentando..."}
-              </>
-            ) : (
-              <>
-                <Layers className="h-4 w-4" />
-                Guardar y Fragmentar
-              </>
-            )}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={resetAll}
+              className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm font-medium text-muted hover:bg-border hover:text-foreground transition"
+            >
+              Volver
+            </button>
+            <button
+              onClick={handleSaveAndFragment}
+              disabled={saving || fragmenting}
+              className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-semibold text-white hover:bg-accent-dim transition disabled:opacity-50"
+            >
+              {saving || fragmenting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {saving ? "Guardando..." : "Fragmentando..."}
+                </>
+              ) : (
+                <>
+                  <Layers className="h-4 w-4" />
+                  Guardar y Fragmentar
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
+      {/* Manual mode with no deliverables yet */}
+      {selectedSubject &&
+        mode === "manual" &&
+        deliverables.length === 0 &&
+        !done && (
+          <button
+            onClick={addDeliverable}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-sm font-medium text-muted hover:border-muted hover:text-foreground transition w-full justify-center"
+          >
+            <Plus className="h-4 w-4" />
+            Agregar entregable
+          </button>
+        )}
+
+      {/* Done state */}
       {done && (
         <div className="rounded-xl border border-border bg-surface p-8 text-center space-y-3">
           <CheckCircle className="h-10 w-10 text-green-400 mx-auto" />
@@ -358,14 +516,7 @@ export default function IntakePage() {
             Ve a la Agenda para ver tus pasos programados e iniciar un bloque de
             enfoque con YLEOS.
           </p>
-          <button
-            onClick={() => {
-              setDeliverables([{ ...emptyDeliverable }]);
-              setSavedIds([]);
-              setDone(false);
-            }}
-            className="text-sm text-accent hover:underline"
-          >
+          <button onClick={resetAll} className="text-sm text-accent hover:underline">
             Agregar más entregables
           </button>
         </div>

@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Loader2,
+  TrendingUp,
+  Clock,
+  Target,
+} from "lucide-react";
 import type { SessionContext } from "@/lib/yleos/gemini";
 
 interface Message {
@@ -17,6 +25,7 @@ export function YleosChat({ sessionContext }: YleosChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [advances, setAdvances] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -31,6 +40,26 @@ export function YleosChat({ sessionContext }: YleosChatProps) {
     );
   }, []);
 
+  // Extract advances from YLEOS responses
+  function extractAdvances(text: string) {
+    const advancePatterns = [
+      /(?:avance|progreso|logro|completado|definido|redactado|estructurado|investigado|analizado|desarrollado)[:\s]+(.+?)(?:\.|$)/gi,
+      /(?:ya tenemos|hemos logrado|se completó|quedó listo)[:\s]*(.+?)(?:\.|$)/gi,
+    ];
+
+    const newAdvances: string[] = [];
+    for (const pattern of advancePatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const advance = match[1].trim();
+        if (advance.length > 10 && advance.length < 120) {
+          newAdvances.push(advance);
+        }
+      }
+    }
+    return newAdvances;
+  }
+
   async function sendMessage(text?: string) {
     const messageText = text || input.trim();
     if (!messageText || streaming) return;
@@ -41,7 +70,6 @@ export function YleosChat({ sessionContext }: YleosChatProps) {
     if (!text) setInput("");
     setStreaming(true);
 
-    // Add empty model message for streaming
     const modelMessage: Message = { role: "model", content: "" };
     setMessages([...updatedMessages, modelMessage]);
 
@@ -92,6 +120,12 @@ export function YleosChat({ sessionContext }: YleosChatProps) {
           return copy;
         });
       }
+
+      // Extract advances from the complete response
+      const newAdvances = extractAdvances(accumulated);
+      if (newAdvances.length > 0) {
+        setAdvances((prev) => [...prev, ...newAdvances]);
+      }
     } catch {
       setMessages((prev) => {
         const copy = [...prev];
@@ -114,16 +148,57 @@ export function YleosChat({ sessionContext }: YleosChatProps) {
     }
   }
 
+  const daysLeft = Math.ceil(
+    (new Date(sessionContext.dueDate).getTime() - Date.now()) /
+      (1000 * 60 * 60 * 24)
+  );
+
   return (
     <div className="flex flex-col h-full border border-border rounded-xl bg-surface overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-2">
-        <Bot className="h-4 w-4 text-accent" />
-        <span className="text-sm font-bold text-accent tracking-wide">
-          YLEOS
-        </span>
-        <span className="text-xs text-muted ml-1">Protocolo Activo</span>
+      {/* Header with context */}
+      <div className="border-b border-border bg-surface-2">
+        <div className="flex items-center gap-2 px-4 py-2.5">
+          <Bot className="h-4 w-4 text-accent" />
+          <span className="text-sm font-bold text-accent tracking-wide">
+            YLEOS
+          </span>
+          <span className="text-xs text-muted ml-1">Protocolo Activo</span>
+        </div>
+        {/* Session info bar */}
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-border/50 text-[11px] text-muted">
+          <span className="flex items-center gap-1">
+            <Target className="h-3 w-3" />
+            {sessionContext.stepTitle}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            <span className={daysLeft <= 3 ? "text-red-400 font-medium" : ""}>
+              {daysLeft}d restantes
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <TrendingUp className="h-3 w-3" />
+            {sessionContext.progress}%
+          </span>
+        </div>
       </div>
+
+      {/* Advances panel (if any) */}
+      {advances.length > 0 && (
+        <div className="border-b border-border bg-green-400/5 px-4 py-2">
+          <p className="text-[10px] font-semibold text-green-400 uppercase tracking-wider mb-1">
+            Avances de esta sesión
+          </p>
+          <div className="space-y-0.5">
+            {advances.map((a, i) => (
+              <p key={i} className="text-[11px] text-green-300/80 flex gap-1.5">
+                <span className="text-green-400">+</span>
+                {a}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
@@ -145,9 +220,11 @@ export function YleosChat({ sessionContext }: YleosChatProps) {
               }`}
             >
               {msg.content}
-              {streaming && i === messages.length - 1 && msg.role === "model" && (
-                <span className="inline-block w-1.5 h-4 bg-accent ml-0.5 animate-pulse" />
-              )}
+              {streaming &&
+                i === messages.length - 1 &&
+                msg.role === "model" && (
+                  <span className="inline-block w-1.5 h-4 bg-accent ml-0.5 animate-pulse" />
+                )}
             </div>
             {msg.role === "user" && (
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2">
