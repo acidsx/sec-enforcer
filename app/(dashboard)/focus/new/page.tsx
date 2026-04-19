@@ -30,7 +30,7 @@ function NewFocusContent() {
     <div className="flex items-center justify-center min-h-[calc(100vh-3rem)]">
       <div className="flex items-center gap-3 text-muted">
         <Loader2 className="h-6 w-6 animate-spin" />
-        <span>Creando bloque de enfoque...</span>
+        <span>Preparando sesión de trabajo...</span>
       </div>
     </div>
   );

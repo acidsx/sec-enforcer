@@ -1,108 +1,195 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { QuarantineScreen } from "@/components/focus/QuarantineScreen";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import type { FocusBlock, FragmentStep } from "@/types/database";
-import type { SessionContext } from "@/lib/yleos/gemini";
+import { SessionHeader } from "@/components/session/SessionHeader";
+import { ChatTutor } from "@/components/session/ChatTutor";
+import { StepPanel } from "@/components/session/StepPanel";
+import { AmbientTimer } from "@/components/session/AmbientTimer";
+import { ProgressPanel } from "@/components/session/ProgressPanel";
+import type { TutorContext } from "@/lib/yleos/prompts/tutor-system";
 
-export default function FocusBlockPage({
+export default function SessionPage({
   params,
 }: {
   params: Promise<{ blockId: string }>;
 }) {
   const { blockId } = use(params);
   const router = useRouter();
-  const [block, setBlock] = useState<FocusBlock | null>(null);
-  const [step, setStep] = useState<FragmentStep | null>(null);
-  const [sessionContext, setSessionContext] = useState<SessionContext | null>(
-    null
-  );
   const [loading, setLoading] = useState(true);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [plannedMinutes, setPlannedMinutes] = useState(25);
+  const [tutorContext, setTutorContext] = useState<TutorContext | null>(null);
+  const [stepTitle, setStepTitle] = useState("");
+  const [stepDescription, setStepDescription] = useState<string | null>(null);
+  const [rubricSummary, setRubricSummary] = useState<string | null>(null);
+  const [deliverableTitle, setDeliverableTitle] = useState("");
+  const [stepOrder, setStepOrder] = useState(1);
+  const [stepsTotal, setStepsTotal] = useState(1);
 
   useEffect(() => {
     async function load() {
-      // Start the block
+      // Start the session
       const startRes = await fetch(`/api/focus-blocks/${blockId}/start`, {
         method: "POST",
       });
       const startData = await startRes.json();
-      if (startRes.ok) {
-        setBlock(startData.block);
 
-        // Load associated step and deliverable context
-        if (startData.block.step_id) {
-          const blocksRes = await fetch("/api/focus-blocks");
-          const blocksData = await blocksRes.json();
-          const fullBlock = blocksData.blocks?.find(
-            (b: any) => b.id === blockId
+      if (!startRes.ok) {
+        router.push("/");
+        return;
+      }
+
+      setStartedAt(startData.block.started_at);
+      setPlannedMinutes(startData.block.planned_minutes || 25);
+
+      // Load step and deliverable context
+      if (startData.block.step_id) {
+        const blocksRes = await fetch("/api/focus-blocks");
+        const blocksData = await blocksRes.json();
+        const fullBlock = blocksData.blocks?.find(
+          (b: any) => b.id === blockId
+        );
+
+        if (fullBlock?.fragment_step) {
+          const step = fullBlock.fragment_step;
+          setStepTitle(step.title);
+          setStepDescription(step.description || null);
+
+          // Fetch deliverable for full context
+          const delRes = await fetch("/api/deliverables");
+          const delData = await delRes.json();
+          const deliverable = delData.deliverables?.find(
+            (d: any) => d.id === step.deliverable_id
           );
-          if (fullBlock?.fragment_step) {
-            setStep(fullBlock.fragment_step);
 
-            // Fetch deliverable info for YLEOS context
-            const delRes = await fetch("/api/deliverables");
-            const delData = await delRes.json();
-            const deliverable = delData.deliverables?.find(
-              (d: any) => d.id === fullBlock.fragment_step.deliverable_id
+          if (deliverable) {
+            setDeliverableTitle(deliverable.title);
+            setRubricSummary(deliverable.description || null);
+
+            const allSteps = (deliverable.fragment_steps || []).sort(
+              (a: any, b: any) => a.step_number - b.step_number
+            );
+            const currentStepIdx = allSteps.findIndex(
+              (s: any) => s.id === step.id
+            );
+            const order = currentStepIdx >= 0 ? currentStepIdx + 1 : 1;
+            setStepOrder(order);
+            setStepsTotal(allSteps.length);
+
+            const completedSteps = allSteps.filter(
+              (s: any) => s.completed
+            ).length;
+            const progress = Math.round(
+              (completedSteps / allSteps.length) * 100
             );
 
-            if (deliverable) {
-              const allSteps = (deliverable.fragment_steps || [])
-                .sort((a: any, b: any) => a.step_number - b.step_number)
-                .map((s: any) => ({
-                  stepNumber: s.step_number,
-                  title: s.title,
-                  description: s.description || null,
-                  completed: s.completed,
-                }));
+            const daysToDeadline = Math.ceil(
+              (new Date(deliverable.due_date).getTime() - Date.now()) /
+                (1000 * 60 * 60 * 24)
+            );
 
-              const totalSteps = allSteps.length || 1;
-              const completedSteps = allSteps.filter(
-                (s: any) => s.completed
-              ).length;
-              const progress = Math.round(
-                (completedSteps / totalSteps) * 100
-              );
+            // Fetch previous checkpoints
+            let previousCheckpoints: {
+              concept: string;
+              student_articulation: string;
+            }[] = [];
+            // Get from any previous session for this deliverable's steps
+            // For now, empty — will populate as sessions occur
 
-              setSessionContext({
-                stepTitle: fullBlock.fragment_step.title,
-                stepDescription:
-                  fullBlock.fragment_step.description || null,
-                deliverableTitle: deliverable.title,
-                deliverableType: deliverable.type,
-                deliverableDescription: deliverable.description || null,
-                dueDate: deliverable.due_date,
-                progress,
-                subjectName: deliverable.subject?.name || "Sin asignatura",
-                allSteps,
-                currentStepNumber: fullBlock.fragment_step.step_number,
-              });
-            }
+            setTutorContext({
+              stepTitle: step.title,
+              stepDescription: step.description || null,
+              stepOrder: order,
+              stepsTotal: allSteps.length,
+              deliverableTitle: deliverable.title,
+              deliverableDescription: deliverable.description || null,
+              rubricSummary: deliverable.description || null,
+              daysToDeadline,
+              previousCheckpoints,
+            });
           }
         }
       }
+
       setLoading(false);
     }
     load();
-  }, [blockId]);
+  }, [blockId, router]);
+
+  async function handleClose(closingNote?: string) {
+    await fetch(`/api/focus-blocks/${blockId}/end`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "completed",
+        notes: closingNote,
+      }),
+    });
+    router.push("/");
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-3rem)]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted" />
+      <div
+        className="flex items-center justify-center min-h-screen"
+        style={{ backgroundColor: "var(--bg-canvas)" }}
+      >
+        <Loader2
+          className="h-8 w-8 animate-spin"
+          style={{ color: "var(--text-muted)" }}
+        />
       </div>
     );
   }
 
   return (
-    <QuarantineScreen
-      blockId={blockId}
-      step={step}
-      durationMinutes={block?.planned_minutes || 25}
-      onEnd={() => router.push("/")}
-      sessionContext={sessionContext}
-    />
+    <div
+      className="flex flex-col h-screen"
+      style={{ backgroundColor: "var(--bg-canvas)" }}
+    >
+      {/* Header */}
+      <SessionHeader
+        deliverableTitle={deliverableTitle}
+        stepOrder={stepOrder}
+        stepsTotal={stepsTotal}
+        onClose={handleClose}
+      />
+
+      {/* Main content */}
+      <div className="flex flex-1 min-h-0">
+        {/* Chat — 60% */}
+        <div className="flex-[3] min-w-0 border-r" style={{ borderColor: "var(--bg-muted)" }}>
+          {tutorContext ? (
+            <ChatTutor tutorContext={tutorContext} sessionId={blockId} />
+          ) : (
+            <div
+              className="flex items-center justify-center h-full"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <p className="text-sm">Sin contexto de sesión</p>
+            </div>
+          )}
+        </div>
+
+        {/* Step panel — 35% */}
+        <div className="flex-[2] min-w-0">
+          <StepPanel
+            stepTitle={stepTitle}
+            stepDescription={stepDescription}
+            rubricSummary={rubricSummary}
+          />
+        </div>
+      </div>
+
+      {/* Progress panel */}
+      <ProgressPanel sessionId={blockId} />
+
+      {/* Ambient timer */}
+      {startedAt && (
+        <AmbientTimer startedAt={startedAt} plannedMinutes={plannedMinutes} />
+      )}
+    </div>
   );
 }

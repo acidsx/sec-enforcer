@@ -217,7 +217,7 @@ export default async function SchedulePage() {
                     className="flex items-center gap-1 rounded-lg bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 transition shrink-0"
                   >
                     <Crosshair className="h-3 w-3" />
-                    Enfocar
+                    Iniciar sesión
                   </Link>
                 </div>
               );

@@ -1,26 +1,40 @@
 @AGENTS.md
 
-# CLAUDE.md — SEC (Sistema de Ejecución y Control)
+# CLAUDE.md — SEC (Sistema de Ejecución y Control) · v2
 
-Este archivo es el contexto permanente del proyecto para Claude Code. Léelo completo al inicio de cada sesión. Trátalo como fuente de verdad sobre convenciones, decisiones técnicas y reglas operativas.
+Este archivo es el contexto permanente del proyecto para Claude Code. Léelo completo al inicio de cada sesión. Es fuente de verdad sobre tesis del producto, stack, convenciones, decisiones técnicas y reglas operativas.
+
+> **v2 (cambio de tesis):** SEC dejó de ser "Pomodoro con IA al lado" para ser **tutor en vivo con timer ambiente**. El timer no corta ni estructura — acompaña. YLEOS no es asistente silencioso — es tutor socrático que inicia, explica y sostiene la comprensión. Este cambio impacta UI, prompt de YLEOS y semántica de las sesiones.
 
 ---
 
-## 1. Identidad del proyecto
+## 1. Tesis del producto (no negociable)
 
-**SEC** es una plataforma de gestión académica + ejecutiva para un solo perfil de usuario (Andrés Cid, Gerente General de SXTECH y estudiante universitario). Combina:
+SEC es una plataforma donde un estudiante trabaja **acompañado por un tutor de IA en vivo** (YLEOS), enfocado en **comprender lo que le están pidiendo y producir el entregable entendiendo el porqué de cada decisión**.
 
-- Ingesta de syllabus universitarios (PDF o manual)
-- Ingesta de correos corporativos de Outlook 365 (MS Graph API)
-- Fragmentación de entregables y correos en tareas ejecutables (vía YLEOS/Gemini)
-- Bloques de enfoque Pomodoro de 25 min con asistencia IA en vivo
-- Triaje asistido de correos con borradores de respuesta aprobables
+El éxito de una sesión **no** es "25 minutos sin distraerse". Es:
+1. El alumno entendió mejor lo que el profe le pide.
+2. El alumno produjo algo concreto (párrafo, esquema, ejercicio resuelto, argumento).
+3. El alumno sale con comprensión consolidada — capaz de explicar lo hecho a alguien más.
+
+El timer existe para dar **sensación de contenedor temporal** (reduce ansiedad, facilita cierre), no para cortar ni forzar ritmo. Opera como indicador ambiente.
+
+---
+
+## 2. Identidad del proyecto
 
 **Dominio producción:** `sec.sx-finance.com`
 
+Funcionalidades principales:
+- Ingesta de syllabus/evaluaciones (PDF o manual)
+- Planificación asistida por YLEOS (con revisión humana)
+- **Modo sesión de trabajo**: tutor YLEOS en vivo + texto del paso + panel de avances y comprensión + timer ambiente
+- Agenda y vista de entregables con urgencia por deadline
+- (Futuro) triaje de correos Outlook
+
 ---
 
-## 2. Stack (fijo — no proponer cambios)
+## 3. Stack (fijo — no proponer cambios)
 
 | Capa | Tecnología |
 |---|---|
@@ -30,83 +44,87 @@ Este archivo es el contexto permanente del proyecto para Claude Code. Léelo com
 | Styling | Tailwind CSS 4 |
 | Icons | Lucide React |
 | IA | Google Gemini 2.5 Flash (YLEOS) |
-| Correo | Microsoft Graph API (Outlook 365) |
 | Deploy | Vercel PRO + Cloudflare DNS |
 
 ---
 
-## 3. Reglas de codebase (NO negociables)
+## 4. Reglas de codebase (NO negociables)
 
 ### TypeScript
 - `strict: true`. Sin `any` salvo el cliente Supabase.
 - Server components por default. `"use client"` solo cuando hay estado o efectos.
 
 ### Rutas protegidas
-- Proxy `proxy.ts` (Next.js 16 renombró middleware a proxy) existente valida sesión Supabase. No duplicar esa lógica en cada route handler.
+- Proxy `proxy.ts` (Next.js 16) existente valida sesión Supabase.
 
 ---
 
-## 4. Estado del código (QUÉ YA EXISTE — NO TOCAR salvo instrucción explícita)
+## 5. Estado del código
 
-Lo siguiente ya está implementado en el repo. **Respétalo** — si una nueva funcionalidad se cruza con algo existente, **extiende**, no reemplaces.
+**Tablas existentes**: `subjects`, `deliverables`, `fragment_steps`, `focus_blocks`, `checkins`, `work_contexts`, `ms_graph_tokens`, `outlook_drafts`, `yleos_usage`.
 
-- **Auth**: Supabase Auth con email/password + proxy de rutas protegidas
-- **Ingesta de syllabus**: Upload de PDF, extracción vía Gemini, tabla de `deliverables`
-- **Fragmentación**: Descomposición de entregables en `fragment_steps` distribuidos en el tiempo
-- **Agenda**: Vista calendario mensual + lista de próximos pasos
-- **Entregables**: Vista con barras de progreso
-- **Bloques de enfoque (Pomodoro)**: Timer circular 25 min + check-ins (tabla: `focus_blocks`)
-- **YLEOS Chat**: Streaming de Gemini 2.5 Flash durante bloques, con barra de contexto y panel de avances
-- **Dashboard**: Stats (pendientes, en progreso, atrasados, horas de enfoque)
-
-**Tablas existentes**: `subjects`, `deliverables`, `fragment_steps`, `focus_blocks`, `checkins`.
+No hay tabla de mensajes YLEOS — el chat es client-side only.
 
 ---
 
-## 5. Modo de trabajo autónomo
+## 6. Modo de trabajo autónomo
 
-**Ejecuta. No pidas permiso.** Solo detente si encuentras un bloqueo real (credencial faltante, conflicto de datos irrecuperable, o contradicción directa entre dos reglas de este documento).
-
----
-
-## 6. Defaults técnicos
-
-### Microsoft Graph (OAuth + envío)
-- **Proveedor OAuth**: Supabase Auth con provider **Azure**, scopes: `Mail.Read Mail.ReadWrite Mail.Send User.Read offline_access`.
-- **Persistencia de tokens**: tabla `ms_graph_tokens`.
-- **Llamadas a MS Graph**: siempre desde el servidor. Nunca exponer tokens al cliente.
-
-### YLEOS (Gemini)
-- Model string: `gemini-2.5-flash`.
-- **Nunca** importar el SDK de Gemini en código cliente.
-
-### Control de costo IA
-- Tabla `yleos_usage (id, user_id, session_id, tokens_in, tokens_out, created_at)`.
-- Limit soft: `YLEOS_DAILY_TOKEN_LIMIT` (default 500000).
-
-### Estado del Pomodoro (anti-sabotaje)
-- `started_at` se persiste en DB al arrancar.
-- Una vez con `started_at` NOT NULL, la fila es **inmutable salvo para cerrar**.
-
-### Convenciones de naming
-- Tablas: `snake_case`, plural.
-- Columnas: `snake_case`. FK user: siempre `user_id uuid references auth.users(id) on delete cascade`.
-- Componentes React: `PascalCase.tsx`.
+**Ejecuta. No pidas permiso.** Detente solo en bloqueos reales.
 
 ---
 
-## 7. Flujo de commits
+## 7. Defaults técnicos del enfoque tutor
 
-- Un commit por **unidad funcional completa**.
-- Mensaje: `<tipo>(<scope>): <qué hace>`.
-- Tipos: `feat`, `fix`, `chore`, `refactor`, `docs`, `db`.
+### Timer ambiente
+- `planned_minutes` (default 25) es hint, no corte. Inmutable después de iniciar.
+- Al llegar al planned: señal sutil (microanimación + toast no-bloqueante). **Nunca** auto-cerrar.
+- UI: barra delgada (4px) en borde inferior. Sin números visibles por default.
+
+### YLEOS tutor — prompt de sistema
+Ubicación: `lib/yleos/prompts/tutor-system.ts`. Principios:
+1. Apertura socrática obligatoria.
+2. No producir el entregable por el alumno.
+3. Tono: andamiaje paciente. Prohibido: confrontación, regaño, urgencia artificial.
+4. Activación de conocimiento previo.
+5. Explicitación de criterios de evaluación.
+
+### Detección de inactividad
+- Umbral: 4 minutos sin mensaje del alumno.
+- Máximo 2 reengages por sesión.
+- Solo por ausencia de mensajes, nunca por actividad del sistema.
+
+### Comprehension checkpoints
+- Tabla `comprehension_checkpoints` captura momentos de comprensión.
+- YLEOS los emite como bloques `<checkpoint>...</checkpoint>` en sus respuestas.
+
+### Paleta
+```css
+--bg-canvas: #F5F1EA; --bg-surface: #FFFFFF; --bg-muted: #EAE4D9;
+--text-primary: #1F1D1A; --text-secondary: #5C574F; --text-muted: #8A8478;
+--accent-primary: #3E5C76; --accent-hover: #2E4A63;
+--ok: #6B8E5F; --warn: #B88A4A; --urgent: #A8483A;
+--focus-bg: #F0ECE3; --focus-surface: #FAF7F1;
+```
+
+### Terminología UI
+- "Bloque de enfoque" → "Sesión de trabajo"
+- "Pomodoro" → "Sesión"
+- "Avances" → "Avances y comprensión"
+
+---
+
+## 8. Flujo de commits
+
+- Un commit por unidad funcional completa.
+- Formato: `<tipo>(<scope>): <qué hace>`.
 - No commitees hasta que `npm run build` pase.
 
 ---
 
-## 8. Lo que NO debes hacer
+## 9. Qué NO hacer
 
 - Renombrar tablas existentes.
-- Cambiar el stack.
-- Agregar dependencias pesadas sin justificar.
-- Reescribir componentes existentes no pedidos.
+- Cambiar stack.
+- Auto-cerrar sesiones por tiempo.
+- Confrontar, regañar o apurar al alumno.
+- Detectar distracción por actividad fuera del tab.

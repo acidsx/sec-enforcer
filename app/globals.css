@@ -1,14 +1,30 @@
 @import "tailwindcss";
 
 :root {
+  /* Legacy tokens (existing pages use these) */
   --background: #0a0a0a;
   --foreground: #ededed;
-  --accent: #ef4444;
-  --accent-dim: #dc2626;
+  --accent: #3E5C76;
+  --accent-dim: #2E4A63;
   --surface: #171717;
   --surface-2: #262626;
   --border: #333333;
   --muted: #a3a3a3;
+
+  /* Tutor mode palette */
+  --bg-canvas: #F5F1EA;
+  --bg-surface: #FFFFFF;
+  --bg-muted: #EAE4D9;
+  --text-primary: #1F1D1A;
+  --text-secondary: #5C574F;
+  --text-muted: #8A8478;
+  --accent-primary: #3E5C76;
+  --accent-hover: #2E4A63;
+  --ok: #6B8E5F;
+  --warn: #B88A4A;
+  --urgent: #A8483A;
+  --focus-bg: #F0ECE3;
+  --focus-surface: #FAF7F1;
 }
 
 @theme inline {
