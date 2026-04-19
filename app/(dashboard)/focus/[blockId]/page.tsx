@@ -49,12 +49,19 @@ export default function FocusBlockPage({
             );
 
             if (deliverable) {
-              // Calculate progress
-              const totalSteps = deliverable.fragment_steps?.length || 1;
-              const completedSteps =
-                deliverable.fragment_steps?.filter(
-                  (s: any) => s.completed
-                ).length || 0;
+              const allSteps = (deliverable.fragment_steps || [])
+                .sort((a: any, b: any) => a.step_number - b.step_number)
+                .map((s: any) => ({
+                  stepNumber: s.step_number,
+                  title: s.title,
+                  description: s.description || null,
+                  completed: s.completed,
+                }));
+
+              const totalSteps = allSteps.length || 1;
+              const completedSteps = allSteps.filter(
+                (s: any) => s.completed
+              ).length;
               const progress = Math.round(
                 (completedSteps / totalSteps) * 100
               );
@@ -65,9 +72,12 @@ export default function FocusBlockPage({
                   fullBlock.fragment_step.description || null,
                 deliverableTitle: deliverable.title,
                 deliverableType: deliverable.type,
+                deliverableDescription: deliverable.description || null,
                 dueDate: deliverable.due_date,
                 progress,
                 subjectName: deliverable.subject?.name || "Sin asignatura",
+                allSteps,
+                currentStepNumber: fullBlock.fragment_step.step_number,
               });
             }
           }

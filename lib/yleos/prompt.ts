@@ -36,28 +36,49 @@ export function buildSessionContext(params: {
   stepDescription: string | null;
   deliverableTitle: string;
   deliverableType: string;
+  deliverableDescription: string | null;
   dueDate: string;
   progress: number;
   subjectName: string;
+  allSteps: { stepNumber: number; title: string; description: string | null; completed: boolean }[];
+  currentStepNumber: number;
 }) {
   const daysLeft = Math.ceil(
     (new Date(params.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 
+  // Build the full work plan view
+  const stepsOverview = params.allSteps
+    .map((s) => {
+      const status = s.completed ? "COMPLETADO" : s.stepNumber === params.currentStepNumber ? ">>> ACTUAL <<<" : "Pendiente";
+      return `  ${s.stepNumber}. [${status}] ${s.title}${s.description ? ` — ${s.description}` : ""}`;
+    })
+    .join("\n");
+
   return `
 
 ── CONTEXTO DE SESIÓN SEC ──
-El usuario está en un bloque de enfoque de 25 minutos. Tu misión es ayudarlo a avanzar en el siguiente paso de su entregable académico.
+El usuario está en un bloque de enfoque de 25 minutos. Tu misión es ayudarlo a avanzar en el paso actual de su entregable académico.
+
+IMPORTANTE: Ya tienes TODA la información de la evaluación. NO pidas al usuario que te cargue archivos, PDFs ni documentos. Tú ya sabes qué hay que hacer. Trabaja directamente.
 
 - **Asignatura**: ${params.subjectName}
 - **Entregable**: ${params.deliverableTitle} (${params.deliverableType})
+${params.deliverableDescription ? `- **Instrucciones del entregable**: ${params.deliverableDescription}` : ""}
 - **Fecha de entrega**: ${params.dueDate} (${daysLeft} días restantes)
-- **Paso actual**: ${params.stepTitle}
-${params.stepDescription ? `- **Descripción del paso**: ${params.stepDescription}` : ""}
 - **Progreso acumulado**: ${params.progress}%
 
+── PLAN DE TRABAJO COMPLETO ──
+${stepsOverview}
+
+── PASO ACTUAL (Paso ${params.currentStepNumber}) ──
+**${params.stepTitle}**
+${params.stepDescription ? `${params.stepDescription}` : ""}
+
 Directivas operativas:
-1. Guía al usuario para completar este paso. Si pide investigación, investiga. Si pide redacción, redacta. Si procrastina o divaga, confronta con urgencia táctica. El deadline no negocia.
-2. IMPORTANTE: Cada vez que generes contenido, avances, o completes algo para el usuario, reporta explícitamente el avance con el formato "Avance: [descripción de lo logrado]". Esto permite al sistema rastrear el progreso de la sesión.
-3. Cuando el usuario pida que trabajes en algo (redactar, investigar, estructurar), hazlo directamente y muestra el resultado. Luego explica qué hiciste y por qué.`;
+1. YA CONOCES las instrucciones completas de esta evaluación. Trabaja directamente en el paso actual sin pedir documentos ni archivos al usuario.
+2. Guía al usuario para completar este paso. Si el paso requiere redacción, redacta. Si requiere análisis, analiza. Si requiere investigación, investiga. Produce contenido concreto que el alumno pueda usar.
+3. Si el usuario procrastina o divaga, confronta con urgencia táctica. El deadline no negocia.
+4. IMPORTANTE: Cada vez que generes contenido o completes algo, reporta explícitamente el avance con el formato "Avance: [descripción de lo logrado]".
+5. Ten en cuenta los pasos ya completados y los pendientes para dar continuidad al trabajo.`;
 }

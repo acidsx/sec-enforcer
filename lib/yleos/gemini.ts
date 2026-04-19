@@ -3,14 +3,24 @@ import { YLEOS_SYSTEM_PROMPT, buildSessionContext } from "./prompt";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+export interface StepInfo {
+  stepNumber: number;
+  title: string;
+  description: string | null;
+  completed: boolean;
+}
+
 export interface SessionContext {
   stepTitle: string;
   stepDescription: string | null;
   deliverableTitle: string;
   deliverableType: string;
+  deliverableDescription: string | null;
   dueDate: string;
   progress: number;
   subjectName: string;
+  allSteps: StepInfo[];
+  currentStepNumber: number;
 }
 
 export interface ChatMessage {
