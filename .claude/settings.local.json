@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --no-src-dir --eslint --no-import-alias --use-npm)",
+      "Bash(where node:*)",
+      "Bash(where npm:*)",
+      "Bash(where npx:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs:/c/Users/acid8/AppData/Roaming/npm\")",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\('Next.js:', pkg.dependencies.next\\); console.log\\('Supabase JS:', pkg.dependencies['@supabase/supabase-js']\\); console.log\\('Supabase SSR:', pkg.dependencies['@supabase/ssr']\\); console.log\\('Lucide React:', pkg.dependencies['lucide-react']\\);\")",
+      "Bash(export BASE=\"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer\")",
+      "Bash(mkdir -p 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(auth\\)/login' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/focus/[blockId]' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/deliverables' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/intake' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/schedule' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/yleos/ingest' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/yleos/fragment' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/focus-blocks/[id]/start' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/focus-blocks/[id]/checkin' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/api/focus-blocks/[id]/end' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/components/focus' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/components/intake' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/components/layout' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/lib/supabase' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/lib/yleos' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/hooks' 'c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/types')",
+      "Bash(gh auth *)",
+      "Bash(npx next *)"
+    ]
+  }
+}
