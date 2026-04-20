@@ -2,12 +2,32 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+// v5 route redirects — deprecated views → moments
+const ROUTE_REDIRECTS: Record<string, string> = {
+  "/asignaturas": "/planificar",
+  "/entregables": "/planificar",
+  "/agenda": "/planificar",
+  "/schedule": "/planificar",
+  "/deliverables": "/planificar",
+  "/logros": "/ajustes",
+  "/notificaciones": "/",
+  "/notifications": "/",
+  "/ingesta": "/planificar",
+  "/intake": "/planificar",
+  "/mi-semana": "/",
+};
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow auth callback and login page without session
   if (pathname === "/login" || pathname.startsWith("/auth")) {
     return NextResponse.next();
+  }
+
+  // v5 redirects (exact match only — don't catch /asignaturas/[id])
+  if (ROUTE_REDIRECTS[pathname]) {
+    return NextResponse.redirect(new URL(ROUTE_REDIRECTS[pathname], request.url));
   }
 
   // Create a Supabase client that reads cookies from the request
