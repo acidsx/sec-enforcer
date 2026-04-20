@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 // v5 route redirects — deprecated views → moments
+// Note: /intake sigue viva porque "Subir syllabus" apunta ahí.
+// Migrar a modal dentro de /planificar en Sprint 4.
 const ROUTE_REDIRECTS: Record<string, string> = {
   "/asignaturas": "/planificar",
   "/entregables": "/planificar",
@@ -12,8 +14,6 @@ const ROUTE_REDIRECTS: Record<string, string> = {
   "/logros": "/ajustes",
   "/notificaciones": "/",
   "/notifications": "/",
-  "/ingesta": "/planificar",
-  "/intake": "/planificar",
   "/mi-semana": "/",
 };
 
