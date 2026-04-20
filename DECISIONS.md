@@ -1,5 +1,28 @@
 # DECISIONS.md — Log de decisiones
 
+## 2026-04-20 — Reparación v5 funcional
+
+### Fixes aplicados
+1. **Ruta `/sesion/[pasoId]`**: creado `page.tsx` que redirige a `/focus/new?stepId=[pasoId]`. Razón: mantener backward compat con cualquier link futuro a la ruta v5 reutilizando el flujo v4.2 ya funcional (crea focus_block y redirige a `/focus/[blockId]` con layout de sesión). Sprint 3 real lo reemplaza después.
+2. **Botón "Empezar sesión" en Hoy**: verificado — ya usa `<Link href="/focus/new?stepId=${step.id}">`. Sin cambios necesarios.
+3. **Endpoint `/api/yleos/analyze-semester`**: placeholder creado que retorna `{ observation: null }`. Planificar actual no lo consume, no requiere guardia en UI.
+4. **Rutas huérfanas**: 0 directorios vacíos sin page.tsx ni subdirs tras este fix.
+
+### Smoke test (post-deploy pendiente del usuario)
+1. Home Hoy renderiza: PENDIENTE USUARIO
+2. Click Empezar sesión navega: PENDIENTE USUARIO
+3. YLEOS responde: PENDIENTE USUARIO
+4. Planificar renderiza: PENDIENTE USUARIO
+5. Ajustes renderiza: PENDIENTE USUARIO
+
+### Pendientes para sesión siguiente (mejoras, no reparación)
+- Implementar `/api/yleos/analyze-semester` real con llamada a YLEOS Analista sobre el semestre
+- Refactorizar Sprints 2/4/5/6 monolíticos a componentes modulares (`components/hoy/*`, `components/planificar/*`, etc.)
+- Completar 5 subrutas Ajustes (notificaciones, yleos, apariencia, cuenta, admin dedicada)
+- Sprint 3 completo: `/sesion/[pasoId]` con layout v5 propio (split 50/50, SessionTopBar, StepPanel v5, YleosChatPanel v5, AmbientBar v5) en vez del redirect actual
+
+---
+
 ## [2026-04-19] v4 — Inventario y Plan
 
 ### Inventario
