@@ -1,5 +1,47 @@
 # DECISIONS.md — Log de decisiones
 
+## 2026-04-20 — Mejoras secuenciales: H1, PR1, F1
+
+### PR1 — Lógica de priorización computeFocus
+- Archivo: `lib/hoy/compute-focus.ts` con función pura `computeFocusSync(entregables)` + entry `computeFocus(userId, supabase)`
+- Fórmula implementada exactamente según spec:
+  - Paso 2 (urgentes, days<=2): sort por desempate (tipo > peso > progreso < días < título)
+  - Paso 3 (no urgentes): `score = assessmentMultiplier(10/1) × weightFactor(max(w/5,1)|1) × urgencyFactor(8-d|1.5|1) × inverseProgressFactor((100-p)/50+0.5)`
+- Tests: 7 + 1 extra en `lib/hoy/__tests__/compute-focus.test.ts`. Todos pasan via `npx tsx`. NO hay test runner configurado — pendiente instalar vitest o jest en siguiente sesión.
+- Clasificación sumativo/formativo: heurística por `weight > 0`. Tablas no tienen columna explícita `assessment_type`, sería mejora futura.
+- Logging: `[compute-focus] user=X focus=Y score=Z urgent=bool`
+
+### H1 — Agencia en Hoy con toggle
+- Migration: `supabase/migrations/20260420_hoy_modo_sugerido.sql` agrega `user_preferences.hoy_modo_sugerido` boolean default true. Usuario debe ejecutarla.
+- Archivos: `app/(dashboard)/page.tsx` (server, carga data) + `app/(dashboard)/HoyView.tsx` (client, toggle + render)
+- Cálculo de "primer paso pendiente": `fragment_steps` del deliverable ordenado por `step_number` ascendente, primer `completed=false`.
+- Toggle persiste via `supabase.from("user_preferences").upsert({ user_id, hoy_modo_sugerido })`.
+- Con modo ON: focus card grande (radius 18, padding 22×24) + compactos (radius 12, padding 12×16). Label cambia a "Sugerido por YLEOS · por urgencia + peso del entregable".
+- Con modo OFF: todos al mismo nivel, título "¿En qué trabajamos hoy?".
+
+### F1 — Endpoint analyze-semester real
+- Archivo: `app/api/yleos/analyze-semester/route.ts`
+- Cache: Map en memoria (no Redis por ahora), TTL 6h por usuario.
+- Prompt pide JSON `{"observation": string|null}`. Si YLEOS no detecta nada, retorna null (la card no se renderiza).
+- Detecta 4 situaciones: pico de carga, entregable crítico sin iniciar, distribución desbalanceada, oportunidad de reacomodo.
+- Componente: `components/planificar/YleosObservationCard.tsx` (client, fetch al montar).
+- Rate limit: implícito vía cache 6h. No hay rate limit adicional — si alguien resetea el cache manualmente, el endpoint se dispara de nuevo.
+- Si falla Gemini: retorna 500 con error, la card simplemente no aparece (UI robusta).
+
+### Pendientes para sesión siguiente
+- F2: Browser push con Service Worker + VAPID
+- F3: Email digest con Resend templates
+- F4: Cron diario con matriz deadline × progreso
+- F5: NotificationBell con datos reales + realtime
+- E1: Atajos de teclado H/P/E/A
+- E2: Micro-toasts al completar
+- E3: Responsive mobile completo (breakpoints < 480px)
+- E4: Transiciones entre momentos (fade + slide)
+- Instalar vitest/jest como test runner oficial
+- Agregar columna `assessment_type` a `deliverables` en vez de heurística por peso
+
+---
+
 ## 2026-04-20 — Reparación v5 funcional
 
 ### Fixes aplicados

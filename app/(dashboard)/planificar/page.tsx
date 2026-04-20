@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { subjectColors } from "@/lib/subject-color";
 import { Upload, ArrowRight, Bot } from "lucide-react";
 import Link from "next/link";
+import { YleosObservationCard } from "@/components/planificar/YleosObservationCard";
 
 export default async function PlanificarPage() {
   const supabase = await createClient();
@@ -149,6 +150,9 @@ export default async function PlanificarPage() {
           </div>
         )}
       </div>
+
+      {/* YLEOS Observation */}
+      <YleosObservationCard />
     </div>
   );
 }
