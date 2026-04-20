@@ -87,6 +87,22 @@ export default function AjustesPage() {
 
   async function updatePref(key: string, value: boolean) {
     if (!user) return;
+
+    // Special handling for browser push — requires subscription flow
+    if (key === "notif_browser_enabled") {
+      const { subscribeToPush, unsubscribeFromPush } = await import(
+        "@/lib/notifications/push-client"
+      );
+      if (value) {
+        const ok = await subscribeToPush();
+        if (!ok) {
+          return; // keep toggle off
+        }
+      } else {
+        await unsubscribeFromPush();
+      }
+    }
+
     setPrefs((p: any) => ({ ...p, [key]: value }));
     await supabase
       .from("user_preferences")

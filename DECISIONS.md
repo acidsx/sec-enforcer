@@ -1,5 +1,55 @@
 # DECISIONS.md — Log de decisiones
 
+## 2026-04-20 — Mejoras secuenciales: F2-F5 + E1-E4
+
+### F2 — Browser push
+- `lib/notifications/push-client.ts` (subscribe/unsubscribe), `push-server.ts` (sendPushToUser via web-push, auto-cleanup 410)
+- `app/api/notifications/subscribe/route.ts` (POST/DELETE)
+- ServiceWorkerRegister en layout. Toggle en Ajustes dispara flujo permisos.
+- Pendiente: VAPID keys reales en Vercel.
+
+### F3 — Email Resend
+- `lib/notifications/email.ts` con sendUrgentEmail (immediate) + sendDigestEmail (acumulado)
+- Templates HTML inline (sin Tailwind, hostiles a clientes email)
+- From: `SEC <no-reply@sx-finance.com>`. Pendiente verificar dominio en Resend.
+
+### F4 — Cron matriz
+- `app/api/cron/notifications/route.ts` con matriz completa (deadline_proximo/hoy, atraso_critico/serio/leve, progreso_bajo)
+- Idempotencia 24h. Tercera función dispatchEmailDigests envía digest.
+- Dispatcher mejorado: browser push para urgent/high, email inmediato solo urgent.
+
+### F5 — NotificationBell
+- Verificado funcional desde v4.1. Polling 60s, badge unread, popover.
+- TODO futuro: Supabase Realtime.
+
+### E1 — Atajos teclado
+- `hooks/useKeyboardShortcuts.ts`: H/P/E/A, Esc en inputs, Cmd+K placeholder
+- KeyboardShortcuts component en layout. Ignora si usuario escribe.
+
+### E2 — Micro-toasts
+- `components/shared/MicroToast.tsx` con ToastProvider + useToast
+- Auto-dismiss 3s, 3 tipos. Provider en layout.
+- Pendiente: integrar en flujo completar paso/fase/entregable.
+
+### E3 — Responsive mobile
+- Media queries en globals.css: < 768px y < 480px
+- Tipografía adaptativa, MomentPills solo iconos en < 480px, cards padding reducido
+- prefers-reduced-motion respetado
+
+### E4 — Transiciones momentos
+- `components/shell/PageTransition.tsx` con key=pathname
+- Suprime transición en /sesion y /focus (inmersión)
+- Animación riseup 400ms cubic-bezier
+
+### Pendientes futuros
+- Integrar useToast en flujo real (completar paso/fase/entregable)
+- Supabase Realtime en NotificationBell
+- VAPID keys reales (NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY)
+- Verificar dominio sx-finance.com en Resend
+- Tests unitarios con vitest
+
+---
+
 ## 2026-04-20 — Mejoras secuenciales: H1, PR1, F1
 
 ### PR1 — Lógica de priorización computeFocus
