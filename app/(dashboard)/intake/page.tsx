@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { PdfDropzone } from "@/components/intake/PdfDropzone";
+import { SECDatePicker } from "@/components/ui/SECDatePicker";
 import {
   Plus,
   Trash2,
@@ -582,15 +583,9 @@ export default function IntakePage() {
                     ))}
                   </select>
 
-                  <input
-                    type="date"
+                  <SECDatePicker
                     value={d.dueDate}
-                    min={today}
-                    onChange={(e) =>
-                      updateDeliverable(i, "dueDate", e.target.value)
-                    }
-                    className="rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
-                    required
+                    onChange={(v) => updateDeliverable(i, "dueDate", v)}
                   />
 
                   <div className="flex items-center gap-1">

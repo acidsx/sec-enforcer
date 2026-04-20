@@ -13,6 +13,7 @@ import {
   Crosshair,
   LogOut,
   Mail,
+  Bell,
 } from "lucide-react";
 
 const baseNavItems = [
@@ -22,6 +23,7 @@ const baseNavItems = [
   { href: "/deliverables", label: "Entregables", icon: FileText },
   { href: "/schedule", label: "Agenda", icon: Calendar },
   { href: "/logros", label: "Logros", icon: Trophy },
+  { href: "/notifications", label: "Notificaciones", icon: Bell },
 ];
 
 const adminNavItems = [
