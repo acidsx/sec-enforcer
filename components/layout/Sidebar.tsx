@@ -54,55 +54,32 @@ export function Sidebar() {
     return pathname.startsWith(href);
   }
 
-  const navItems = role === "admin"
-    ? [...baseNavItems, ...adminNavItems]
-    : baseNavItems;
+  const navItems =
+    role === "admin" ? [...baseNavItems, ...adminNavItems] : baseNavItems;
 
   return (
-    <aside
-      className="flex flex-col w-64 border-r shrink-0"
-      style={{
-        backgroundColor: "var(--bg-surface)",
-        borderColor: "var(--bg-muted)",
-      }}
-    >
-      <div
-        className="flex items-center gap-2 px-5 py-5 border-b"
-        style={{ borderColor: "var(--bg-muted)" }}
-      >
-        <Crosshair className="h-6 w-6" style={{ color: "var(--accent-primary)" }} />
-        <span
-          className="text-xl font-black tracking-widest"
-          style={{ color: "var(--accent-primary)" }}
-        >
-          SEC
-        </span>
+    <aside className="sidebar">
+      <div className="sidebar__logo">
+        <Crosshair size={22} />
+        SEC
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="sidebar__nav">
         {navItems.map(({ href, label, icon: Icon }) => (
           <button
             key={href}
             onClick={() => router.push(href)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-            style={{
-              backgroundColor: isActive(href) ? "var(--bg-muted)" : "transparent",
-              color: isActive(href) ? "var(--accent-primary)" : "var(--text-muted)",
-            }}
+            className={`sidebar__item ${isActive(href) ? "sidebar__item--active" : ""}`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon size={18} />
             {label}
           </button>
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t" style={{ borderColor: "var(--bg-muted)" }}>
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          style={{ color: "var(--text-muted)" }}
-        >
-          <LogOut className="h-4 w-4" />
+      <div className="sidebar__footer">
+        <button onClick={handleLogout} className="sidebar__item">
+          <LogOut size={18} />
           Cerrar Sesión
         </button>
       </div>

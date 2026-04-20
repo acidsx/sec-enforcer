@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { DayPicker } from "react-day-picker";
 import { format, parse, isValid } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar } from "lucide-react";
+import { Calendar, X } from "lucide-react";
+import { Modal } from "./Modal";
 import "react-day-picker/style.css";
 
 interface SECDatePickerProps {
@@ -22,7 +23,6 @@ export function SECDatePicker({
 }: SECDatePickerProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || "");
-  const ref = useRef<HTMLDivElement>(null);
 
   const min = minDate || new Date();
   const selected = value ? new Date(value + "T12:00:00") : undefined;
@@ -31,21 +31,9 @@ export function SECDatePicker({
     setInputValue(value || "");
   }, [value]);
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
     setInputValue(v);
-
-    // Try parsing DD/MM/YYYY or YYYY-MM-DD
     const parsed = parse(v, "dd/MM/yyyy", new Date());
     if (isValid(parsed) && parsed >= min) {
       onChange(format(parsed, "yyyy-MM-dd"));
@@ -57,7 +45,7 @@ export function SECDatePicker({
     }
   }
 
-  function handleDaySelect(day: Date | undefined) {
+  function handleSelect(day: Date | undefined) {
     if (!day) return;
     const dateStr = format(day, "yyyy-MM-dd");
     onChange(dateStr);
@@ -70,56 +58,44 @@ export function SECDatePicker({
     : null;
 
   return (
-    <div ref={ref} className="relative">
-      <div className="flex items-center gap-1">
+    <>
+      <div className="secdatepicker">
         <input
           type="text"
           value={inputValue}
           onChange={handleInputChange}
           placeholder="DD/MM/YYYY"
           disabled={disabled}
-          className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none"
-          style={{
-            backgroundColor: "var(--bg-surface)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--bg-muted)",
-          }}
+          className="secdatepicker__input"
         />
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={() => setOpen(true)}
           disabled={disabled}
-          className="flex h-10 w-10 items-center justify-center rounded-lg transition"
-          style={{
-            backgroundColor: "var(--bg-muted)",
-            color: "var(--text-muted)",
-          }}
+          className="secdatepicker__trigger"
+          aria-label="Abrir calendario"
         >
-          <Calendar className="h-4 w-4" />
+          <Calendar size={18} />
         </button>
       </div>
 
-      {dayLabel && (
-        <p
-          className="text-[10px] mt-1"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Vence {dayLabel}
-        </p>
-      )}
+      {dayLabel && <p className="secdatepicker__hint">Vence {dayLabel}</p>}
 
-      {open && (
-        <div
-          className="absolute z-50 mt-1 rounded-xl shadow-lg p-3"
-          style={{
-            backgroundColor: "var(--bg-surface)",
-            border: "1px solid var(--bg-muted)",
-          }}
-        >
+      <Modal open={open} onClose={() => setOpen(false)} size="sm">
+        <div className="datepicker-modal">
+          <header className="datepicker-modal__header">
+            <h3>Selecciona una fecha</h3>
+            <button
+              onClick={() => setOpen(false)}
+              className="btn-ghost btn-sm"
+            >
+              <X size={18} />
+            </button>
+          </header>
           <DayPicker
             mode="single"
             selected={selected}
-            onSelect={handleDaySelect}
+            onSelect={handleSelect}
             locale={es}
             weekStartsOn={1}
             disabled={{ before: min }}
@@ -135,7 +111,7 @@ export function SECDatePicker({
             }}
           />
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }
