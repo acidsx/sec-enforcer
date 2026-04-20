@@ -28,6 +28,16 @@ interface Subject {
 interface StepForm {
   title: string;
   description: string;
+  estimatedMinutes?: number;
+  faseOrden?: number;
+  faseNombre?: string;
+}
+
+interface FaseForm {
+  orden: number;
+  nombre: string;
+  tipo: string;
+  steps: StepForm[];
 }
 
 interface DeliverableForm {
@@ -36,6 +46,7 @@ interface DeliverableForm {
   dueDate: string;
   weight: number;
   description: string;
+  fases: FaseForm[];
   steps: StepForm[];
   expanded: boolean;
 }
@@ -47,13 +58,7 @@ interface AnalysisResult {
     weight: number;
     summary: string;
   };
-  deliverables: {
-    title: string;
-    type: string;
-    weight: number;
-    description: string;
-    steps: StepForm[];
-  }[];
+  deliverables: any[];
   format_requirements: string;
   evaluation_criteria: string[];
 }
@@ -64,6 +69,7 @@ const emptyDeliverable: DeliverableForm = {
   dueDate: "",
   weight: 0,
   description: "",
+  fases: [],
   steps: [],
   expanded: true,
 };
@@ -156,15 +162,34 @@ export default function IntakePage() {
 
       if (data.deliverables?.length) {
         setDeliverables(
-          data.deliverables.map((d: any) => ({
-            title: d.title || "",
-            type: d.type || "tarea",
-            dueDate: "",
-            weight: d.weight || 0,
-            description: d.description || "",
-            steps: d.steps || [],
-            expanded: false,
-          }))
+          data.deliverables.map((d: any) => {
+            const fases: FaseForm[] = (d.fases || []).map((f: any) => ({
+              orden: f.orden ?? 0,
+              nombre: f.nombre || "",
+              tipo: f.tipo || "general",
+              steps: (f.steps || []).map((s: any) => ({
+                title: s.title || s.titulo || "",
+                description: s.description || s.descripcion || "",
+                estimatedMinutes: s.estimatedMinutes || s.tiempo_estimado || 25,
+              })),
+            }));
+            return {
+              title: d.title || "",
+              type: d.type || "tarea",
+              dueDate: "",
+              weight: d.weight || 0,
+              description: d.description || "",
+              fases,
+              steps: fases.flatMap((f) =>
+                f.steps.map((s) => ({
+                  ...s,
+                  faseOrden: f.orden,
+                  faseNombre: f.nombre,
+                }))
+              ),
+              expanded: false,
+            };
+          })
         );
       }
       setAnalyzing(false);
@@ -234,51 +259,49 @@ export default function IntakePage() {
     setSaving(false);
     setFragmenting(true);
 
-    // Fragment each deliverable — use PDF-extracted steps if available
+    // Persist fases and steps for each deliverable
     for (let i = 0; i < saveData.deliverables.length; i++) {
       const d = saveData.deliverables[i];
-      const pdfSteps = deliverables[i]?.steps;
+      const pdfFases = deliverables[i]?.fases;
 
-      if (pdfSteps && pdfSteps.length > 0) {
-        // Save YLEOS-analyzed steps directly
-        const stepsToSave = pdfSteps.map((s: StepForm, idx: number) => ({
-          deliverable_id: d.id,
-          user_id: d.user_id,
-          step_number: idx + 1,
-          title: s.title,
-          description: s.description,
-          scheduled_date: distributeDate(d.due_date, idx, pdfSteps.length),
-        }));
-
-        const stepRes = await fetch("/api/fragment-steps", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ steps: stepsToSave, deliverableId: d.id }),
-        });
-
-        if (!stepRes.ok) {
-          // Fallback to mock fragmentation
-          await fetch("/api/yleos/fragment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              deliverableId: d.id,
-              title: d.title,
-              dueDate: d.due_date,
-            }),
-          });
-        }
-      } else {
-        // Use mock fragmentation
-        await fetch("/api/yleos/fragment", {
+      if (pdfFases && pdfFases.length > 0) {
+        // Case 1: PDF analysis with structured fases — persist directly
+        await fetch("/api/fases/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             deliverableId: d.id,
+            fases: pdfFases,
+          }),
+        });
+      } else {
+        // Case 2: Manual entry — generate plan with Gemini (NO mock)
+        const generated = await fetch("/api/yleos/generate-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             title: d.title,
+            description: deliverables[i]?.description || "",
+            type: d.type,
             dueDate: d.due_date,
           }),
         });
+        const generatedData = await generated.json();
+
+        if (generated.ok && generatedData.fases?.length > 0) {
+          await fetch("/api/fases/bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              deliverableId: d.id,
+              fases: generatedData.fases,
+            }),
+          });
+        } else {
+          setError(
+            "No pudimos generar el plan automáticamente. Edita manualmente."
+          );
+        }
       }
     }
 
