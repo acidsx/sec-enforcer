@@ -1,85 +1,133 @@
-# SEC — Sistema de Ejecución y Control
+# SEC — Sistema de Ejecución y Control · v5
 
-Plataforma de gestión académica que combina ingesta inteligente de evaluaciones (PDF o manual), generación automática de planes de trabajo, bloques de enfoque Pomodoro de 25 minutos, y asistencia en tiempo real con **YLEOS** — una IA táctica basada en Gemini que comprende la evaluación completa, guía al alumno paso a paso, produce avances concretos y confronta la procrastinación.
+Plataforma de gestión académica diseñada por **momentos del usuario**, no por vistas CRUD. Un tutor IA en vivo (**YLEOS** con 3 modos: Analista, Tutor, Revisor) acompaña al alumno a comprender evaluaciones, planificar el semestre, trabajar en sesiones de 25 min y entregar con confianza.
 
 ## Stack
 
 - **Framework**: Next.js 16 (App Router, React 19)
-- **Database & Auth**: Supabase PRO (PostgreSQL + Auth + RLS)
+- **Lenguaje**: TypeScript (strict)
+- **Database & Auth**: Supabase PRO (PostgreSQL + RLS)
 - **AI**: Google Gemini 2.5 Flash (YLEOS — prompt propietario)
-- **Styling**: Tailwind CSS 4
+- **Styling**: Tailwind CSS 4 + design tokens CSS
 - **Icons**: Lucide React
+- **Email**: Resend
+- **Correo corp.**: Microsoft Graph (admin-only, standby)
 - **Deploy**: Vercel PRO + Cloudflare DNS
 
-## Flujo Principal
+## Arquitectura por momentos (v5)
+
+En vez de sidebar con listas planas, la app se organiza por lo que el usuario está haciendo mentalmente:
+
+### 1. Hoy — "¿Qué hago ahora?"
+Una sola tarjeta de foco con el paso actual prioritario. CTA directo a sesión de 25 min. Sin ruido.
+
+### 2. En sesión — "Estoy trabajando. No me molesten."
+Layout 50/50: paso actual + chat YLEOS Tutor. Timer ambiente (barra 4px al pie, sin números prominentes). Notificaciones suprimidas salvo urgent.
+
+### 3. Planificar — "¿Cómo se ve mi semestre?"
+Grid de carga por semana (8 semanas, colores por densidad) + timeline de próximos entregables con progress rings. Quick actions: subir syllabus, revisar carga con YLEOS Analista.
+
+### 4. Entregar — "¿Ya puedo enviarlo?"
+Documento final + verdict de YLEOS Revisor (ready/needs_work/critical) + checklist formal. Marcar como entregado es irreversible.
+
+### Ajustes
+Perfil, YLEOS Acelerado (admin-only), shortcuts a vistas complementarias (Asignaturas, Logros, Notificaciones).
+
+## YLEOS — 3 modos
+
+- **Analista**: al subir PDF. Identifica tipo de evaluación, trampas de rúbrica, propone fases y pasos concretos.
+- **Tutor**: durante sesión. Apertura socrática, andamiaje paciente, checkpoints de comprensión. Prohibido escribir el entregable.
+- **Revisor**: pre-entrega. Diagnóstico contra rúbrica, veredicto, sin reescribir.
+
+**Modo Acelerado** (admin-only): andamiaje más completo, pero el límite ético duro sigue — YLEOS nunca produce el entregable por el alumno.
+
+## Jerarquía de información
 
 ```
-1. Subir PDF de evaluación
-2. YLEOS analiza: identifica tareas, rúbrica, formato, criterios
-3. Genera plan de trabajo con pasos concretos para nota máxima
-4. Alumno define fechas de entrega
-5. Pasos se distribuyen en calendario
-6. Alumno inicia bloque de enfoque (25 min)
-7. YLEOS acompaña en chat: redacta, investiga, estructura
-8. Check-in al finalizar → siguiente paso
+Asignatura (con color propio de paleta cerrada)
+  └── Entregable (archivo físico que se sube al profe)
+        └── Fase (etapa de trabajo, 3-5 por entregable)
+              └── Paso (acción concreta de 25 min)
 ```
 
-## Funcionalidades
+## Medallas
 
-### Ingesta Inteligente
-- **Subir PDF**: YLEOS analiza la evaluación completa con Gemini — extrae instrucciones, entregables, requisitos de formato, criterios de evaluación de la rúbrica y genera un plan de trabajo con pasos ejecutables diseñados para sesiones de 25 min
-- **Entrada manual**: Definir entregables y fechas manualmente
-- **Validación**: Fechas pasadas bloqueadas
+5 tipos cerrados por logros reales (no métricas de uso):
+- `primera_asignatura`, `primer_entregable`, `fase_completada`, `entregable_completado`, `semestre_completado`
 
-### YLEOS — Asistente Táctico
-- Chat en vivo durante bloques de enfoque con streaming en tiempo real
-- **Contexto completo**: YLEOS conoce las instrucciones de la evaluación, el plan de trabajo completo, pasos completados/pendientes, deadline y progreso — trabaja directamente sin pedir archivos
-- **Panel de avances**: Registra automáticamente los avances generados durante cada sesión
-- **Barra de contexto**: Paso actual, días restantes, progreso %
-- **Anti-procrastinación**: Confronta al alumno si divaga o pierde foco
+## Notificaciones tri-canal
 
-### Gestión Académica
-- **Dashboard**: Stats en tiempo real (pendientes, en progreso, atrasados, horas de enfoque)
-- **Agenda**: Vista calendario mensual con indicadores por día + lista de próximos pasos con urgencia (colores según días restantes)
-- **Entregables**: Vista con barras de progreso por pasos completados
-- **Bloques de Enfoque**: Pomodoro 25 min con timer circular + check-ins de estado de ánimo y progreso
+- **In-app**: campana con contador + popover
+- **Browser push**: Web Push con Service Worker + VAPID
+- **Email**: via Resend, inmediato para `high`/`urgent`, digest diario para resto
 
-### Auth & Seguridad
-- Login/registro con Supabase Auth
-- Proxy middleware (Next.js 16) para rutas protegidas
-- Row Level Security en todas las tablas
+Cron diario con matriz **deadline × progreso** decide cuándo notificar.
 
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env.local
-# Configurar credenciales
 npm run dev
 ```
 
-### Database
+### Migrations (en orden)
 
-Ejecutar `supabase/schema.sql` en Supabase SQL Editor para crear las tablas con RLS.
+Ejecutar en Supabase SQL Editor:
+1. `supabase/schema.sql` — tablas base (subjects, deliverables, fragment_steps, focus_blocks, checkins)
+2. `supabase/migrations/20260419_outlook_and_focus_hardening.sql` — work_contexts, ms_graph_tokens, outlook_drafts, yleos_usage + anti-sabotaje
+3. `supabase/migrations/20260419_tutor_mode.sql` — yleos_messages, comprehension_checkpoints
+4. `supabase/migrations/20260419_structural_hierarchy.sql` — fases, logros, user_preferences
+5. `supabase/migrations/20260419_v4_roles_yleos_modes.sql` — user_roles + Acelerado trigger
+6. `supabase/migrations/20260419_v4_1_notifs_docs.sql` — notifications, push_subscriptions, entregables_documentos, yleos_reviews
 
 ### Environment Variables
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key
-GEMINI_API_KEY=tu-gemini-api-key
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# Gemini
+GEMINI_API_KEY=
+
+# Notifications
+CRON_SECRET=
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+RESEND_API_KEY=
+
+# Outlook (admin, opcional — standby)
+AZURE_CLIENT_ID=
+AZURE_TENANT_ID=common
+MS_GRAPH_REDIRECT_URL=
 ```
 
-## Arquitectura
+## Reglas duras (no negociables)
+
+- **Light mode only** — sin dark mode en ninguna forma
+- **YLEOS nunca escribe el entregable completo** — ni siquiera en Acelerado
+- **Sesiones inmutables** — `started_at` no se puede modificar una vez iniciado
+- **Una acción primaria por pantalla**
+- **Timer ambiente, no corte** — nunca auto-cerrar sesión
+- **Logros por resultados reales** — nunca por minutos/streaks
+
+## Arquitectura técnica
 
 ```
-sec.sx-finance.com (Cloudflare DNS)
-  └── Vercel PRO (build + hosting)
-        ├── Next.js 16 (App Router)
-        ├── Supabase PRO (DB + Auth + RLS)
-        └── Gemini 2.5 Flash (YLEOS AI)
+sec.sx-finance.com (Cloudflare DNS, gris)
+  └── Vercel PRO
+        ├── Next.js 16 App Router (server components default)
+        ├── Proxy middleware → validación sesión Supabase
+        ├── API routes para YLEOS/documentos/notificaciones
+        ├── Cron diario (/api/cron/notifications)
+        └── Service Worker para push
+  
+  → Supabase PRO (DB + Auth + RLS + Storage)
+  → Gemini 2.5 Flash (YLEOS 3 modos)
+  → Resend (emails)
 ```
 
-## Domain
+## Dominio
 
-Production: `sec.sx-finance.com`
+Producción: `sec.sx-finance.com`
