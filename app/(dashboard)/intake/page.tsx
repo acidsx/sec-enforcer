@@ -337,25 +337,24 @@ export default function IntakePage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Ingesta de Entregables
-        </h1>
-        <p className="mt-1 text-muted">
+    <div className="space-y-8" style={{ maxWidth: "720px" }}>
+      <div className="riseup">
+        <p className="label">Momento ingesta</p>
+        <h1 className="mt-2">Ingesta de Entregables</h1>
+        <p className="caption mt-2">
           Sube un PDF de evaluación o define entregables manualmente. YLEOS
           analiza, planifica y fragmenta.
         </p>
       </div>
 
       {/* Subject selection */}
-      <div className="space-y-3">
-        <label className="block text-sm font-medium">Asignatura</label>
+      <div className="space-y-3 riseup delay-200">
+        <label className="label">Asignatura</label>
         <div className="flex gap-2">
           <select
             value={selectedSubject}
             onChange={(e) => setSelectedSubject(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-foreground focus:border-accent focus:outline-none"
+            style={{ flex: 1 }}
           >
             <option value="">Selecciona una asignatura</option>
             {subjects.map((s) => (
@@ -367,9 +366,9 @@ export default function IntakePage() {
           </select>
           <button
             onClick={() => setShowNewSubject(!showNewSubject)}
-            className="flex items-center gap-1 rounded-lg bg-surface-2 px-3 py-2.5 text-sm font-medium text-muted hover:bg-border hover:text-foreground transition"
+            className="btn btn-secondary"
           >
-            <Plus className="h-4 w-4" />
+            <Plus size={14} />
             Nueva
           </button>
         </div>
@@ -377,27 +376,28 @@ export default function IntakePage() {
         {showNewSubject && (
           <form
             onSubmit={createSubject}
-            className="flex gap-2 rounded-lg border border-border bg-surface p-3"
+            className="flex gap-2 card"
+            style={{ padding: "var(--space-3)" }}
           >
             <input
               type="text"
               placeholder="Nombre de la asignatura"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              style={{ flex: 1 }}
               required
             />
             <input
               type="text"
-              placeholder="Código (opt.)"
+              placeholder="Código"
               value={newCode}
               onChange={(e) => setNewCode(e.target.value)}
-              className="w-28 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              style={{ width: "100px" }}
             />
             <button
               type="submit"
               disabled={subjectLoading}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dim transition disabled:opacity-50"
+              className="btn btn-primary"
             >
               Crear
             </button>
