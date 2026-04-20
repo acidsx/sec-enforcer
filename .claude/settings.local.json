@@ -17,7 +17,10 @@
       "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/asignaturas/[id]\")",
       "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/entregables/[id]\")",
       "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/entregar/[entregableId]\")",
-      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/sesion/[pasoId]\")"
+      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/sesion/[pasoId]\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }

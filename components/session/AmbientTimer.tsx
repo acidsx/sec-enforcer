@@ -46,9 +46,9 @@ export function AmbientTimer({ startedAt, plannedMinutes }: AmbientTimerProps) {
 
   return (
     <>
-      {/* Timer bar — 4px at bottom */}
+      {/* Timer bar — 4px, relative inside session container */}
       <div
-        className="fixed bottom-0 left-0 right-0 h-1 z-40"
+        className="relative h-1 shrink-0"
         style={{ backgroundColor: "var(--bg-muted)" }}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
