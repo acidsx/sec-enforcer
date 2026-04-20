@@ -133,7 +133,7 @@ export default function SessionPage({
   if (loading) {
     return (
       <div
-        className="flex items-center justify-center min-h-screen"
+        className="fixed inset-0 flex items-center justify-center z-50"
         style={{ backgroundColor: "var(--bg-canvas)" }}
       >
         <Loader2
@@ -146,7 +146,7 @@ export default function SessionPage({
 
   return (
     <div
-      className="flex flex-col h-screen"
+      className="fixed inset-0 flex flex-col z-50"
       style={{ backgroundColor: "var(--bg-canvas)" }}
     >
       {/* Header */}
@@ -160,7 +160,10 @@ export default function SessionPage({
       {/* Main content */}
       <div className="flex flex-1 min-h-0">
         {/* Chat — 60% */}
-        <div className="flex-[3] min-w-0 border-r" style={{ borderColor: "var(--bg-muted)" }}>
+        <div
+          className="flex-[3] min-w-0 border-r"
+          style={{ borderColor: "var(--bg-muted)" }}
+        >
           {tutorContext ? (
             <ChatTutor tutorContext={tutorContext} sessionId={blockId} />
           ) : (
