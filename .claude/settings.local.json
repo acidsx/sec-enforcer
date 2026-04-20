@@ -15,7 +15,9 @@
       "Bash(gh auth *)",
       "Bash(npx next *)",
       "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/asignaturas/[id]\")",
-      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/entregables/[id]\")"
+      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/entregables/[id]\")",
+      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/entregar/[entregableId]\")",
+      "Bash(mkdir -p \"c:/Users/acid8/OneDrive - sxtech/GENESIS/sec-enforcer/app/\\(dashboard\\)/sesion/[pasoId]\")"
     ]
   }
 }

@@ -1,357 +1,265 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  FileText,
-  Clock,
-  TrendingUp,
-  Crosshair,
-  ChevronRight,
-  CheckCircle2,
-  Circle,
-  AlertTriangle,
-} from "lucide-react";
+import { subjectColors } from "@/lib/subject-color";
+import { ArrowRight, Clock } from "lucide-react";
 import Link from "next/link";
 
-export default async function MiSemanaPage() {
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Buenos días";
+  if (hour < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
+
+export default async function HoyPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
-
-  // Load active deliverables with fases and steps
+  // Load all active deliverables with subject, fases, steps
   const { data: deliverables } = await supabase
     .from("deliverables")
-    .select("*, subject:subjects(name, color), fases(id, nombre, tipo, orden, completada_at, fragment_steps(id, completed)), fragment_steps(id, completed)")
+    .select(`
+      *,
+      subject:subjects(name, color),
+      fases(id, orden, nombre, completada_at, fragment_steps(id, completed, scheduled_date)),
+      fragment_steps(id, completed, title, description, scheduled_date, step_number, fase_id)
+    `)
     .eq("user_id", user!.id)
     .neq("status", "completed")
     .order("due_date", { ascending: true });
 
   const items = deliverables || [];
 
-  // Load completed focus blocks this week
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  const { count: sessionsThisWeek } = await supabase
-    .from("focus_blocks")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user!.id)
-    .eq("status", "completed")
-    .gte("started_at", weekStart.toISOString());
+  // Determine focus: first non-completed step of highest-priority deliverable
+  let focusDeliverable: any = null;
+  let focusStep: any = null;
 
-  // Metrics
-  const totalSteps = items.reduce((a, d: any) => a + (d.fragment_steps?.length || 0), 0);
-  const completedSteps = items.reduce(
-    (a, d: any) => a + (d.fragment_steps?.filter((s: any) => s.completed).length || 0), 0
-  );
-  const globalProgress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  for (const d of items) {
+    const steps = (d.fragment_steps || []).sort(
+      (a: any, b: any) => a.step_number - b.step_number
+    );
+    const nextStep = steps.find((s: any) => !s.completed);
+    if (nextStep) {
+      focusDeliverable = d;
+      focusStep = nextStep;
+      break;
+    }
+  }
 
-  const nextDeadline = items[0];
-  const nextDays = nextDeadline
-    ? Math.ceil((new Date(nextDeadline.due_date).getTime() - Date.now()) / (1000*60*60*24))
-    : null;
+  const greeting = getGreeting();
+  const userName =
+    user?.email?.split("@")[0]?.replace(/[._]/g, " ") || "estudiante";
 
-  // Build week days
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    return {
-      label: d.toLocaleDateString("es-CL", { weekday: "short" }),
-      day: d.getDate(),
-      dateStr: d.toISOString().split("T")[0],
-      isToday: d.toISOString().split("T")[0] === todayStr,
-    };
-  });
-
-  const metrics = [
-    { label: "Activos", value: items.length, sub: "entregables", icon: FileText },
-    {
-      label: "Próx. entrega",
-      value: nextDays !== null ? `${nextDays}d` : "—",
-      sub: nextDeadline ? (nextDeadline as any).title?.substring(0, 20) : "",
-      icon: Clock,
-      urgent: nextDays !== null && nextDays <= 3,
-    },
-    { label: "Progreso", value: `${globalProgress}%`, sub: `${completedSteps}/${totalSteps} pasos`, icon: TrendingUp },
-    { label: "Sesiones", value: sessionsThisWeek || 0, sub: "esta semana", icon: Crosshair },
-  ];
+  // Build "later" cards (other active deliverables, max 3)
+  const laterCards = items
+    .filter((d: any) => d.id !== focusDeliverable?.id)
+    .slice(0, 3);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1
-          className="text-2xl font-bold tracking-tight"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Mi semana
+    <div className="space-y-10">
+      {/* Greeting */}
+      <div className="riseup">
+        <p className="label">Hoy · {new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}</p>
+        <h1 className="display mt-2" style={{ textTransform: "capitalize" }}>
+          {greeting}, {userName}
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-          {items.length} entregable{items.length !== 1 ? "s" : ""} activo{items.length !== 1 ? "s" : ""}
-        </p>
       </div>
 
-      {/* Week bar */}
+      {/* Focus card */}
+      {focusDeliverable && focusStep ? (
+        <FocusCard deliverable={focusDeliverable} step={focusStep} />
+      ) : items.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <AllDoneCard />
+      )}
+
+      {/* Later this week */}
+      {laterCards.length > 0 && (
+        <div className="riseup delay-1100">
+          <p className="label mb-4">Más tarde esta semana</p>
+          <div className="grid gap-3">
+            {laterCards.map((d: any) => (
+              <LaterCard key={d.id} deliverable={d} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FocusCard({ deliverable, step }: { deliverable: any; step: any }) {
+  const colors = subjectColors(deliverable.subject?.color);
+  const daysLeft = Math.ceil(
+    (new Date(deliverable.due_date).getTime() - Date.now()) /
+      (1000 * 60 * 60 * 24)
+  );
+  const fases = (deliverable.fases || []).sort(
+    (a: any, b: any) => a.orden - b.orden
+  );
+  const allSteps = deliverable.fragment_steps || [];
+  const completedSteps = allSteps.filter((s: any) => s.completed).length;
+  const totalSteps = allSteps.length;
+  const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
+
+  // Find current fase
+  const currentFase = fases.find((f: any) => !f.completada_at);
+
+  return (
+    <div className="riseup delay-600">
+      <p className="label mb-3">Foco ahora</p>
       <div
-        className="flex gap-1 rounded-xl p-2"
-        style={{ backgroundColor: "var(--bg-muted)" }}
+        className="focus-card"
+        style={{ ["--subject-color" as any]: colors.main }}
       >
-        {weekDays.map((d) => (
-          <div
-            key={d.dateStr}
-            className="flex-1 text-center rounded-lg py-2 transition"
-            style={{
-              backgroundColor: d.isToday ? "var(--accent-primary)" : "transparent",
-              color: d.isToday ? "#fff" : "var(--text-muted)",
-            }}
-          >
-            <p className="text-[10px] uppercase font-medium">{d.label}</p>
-            <p className="text-sm font-bold">{d.day}</p>
-          </div>
-        ))}
-      </div>
+        <div className="focus-card__band" />
 
-      {/* Metrics grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {metrics.map((m: any) => (
-          <div
-            key={m.label}
-            className="rounded-xl p-4"
-            style={{ backgroundColor: "var(--bg-muted)" }}
-          >
-            <div className="flex items-center gap-2">
-              <m.icon
-                className="h-4 w-4"
-                style={{ color: m.urgent ? "var(--urgent)" : "var(--text-muted)" }}
-              />
-              <span
-                className="text-[10px] uppercase tracking-wider font-semibold"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {m.label}
-              </span>
-            </div>
-            <p
-              className="text-2xl font-bold mt-1"
-              style={{ color: m.urgent ? "var(--urgent)" : "var(--text-primary)" }}
-            >
-              {m.value}
-            </p>
-            {m.sub && (
-              <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                {m.sub}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
+        <div className="flex items-center gap-2 mb-3">
+          <span
+            className="subject-dot subject-dot--pulse"
+            style={{ ["--subject-color" as any]: colors.main }}
+          />
+          <span className="label" style={{ color: colors.fg }}>
+            {deliverable.subject?.name || "Sin asignatura"}
+          </span>
+        </div>
 
-      {/* Flow cards */}
-      <div>
-        <h2
-          className="text-sm font-semibold uppercase tracking-wider mb-3"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Flujos activos
+        <h2 className="serif" style={{ fontSize: "26px", fontWeight: 500, lineHeight: 1.25 }}>
+          {step.title}
         </h2>
+        {step.description && (
+          <p className="mt-3 caption" style={{ maxWidth: "640px", lineHeight: 1.6 }}>
+            {step.description}
+          </p>
+        )}
 
-        {items.length === 0 ? (
-          <div
-            className="rounded-xl p-12 text-center"
-            style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--bg-muted)" }}
-          >
-            <FileText className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
-            <p style={{ color: "var(--text-muted)" }}>
-              Sin entregables activos. Ve a Ingesta para comenzar.
-            </p>
+        <div className="flex items-center gap-4 mt-5 caption">
+          <span className="flex items-center gap-1.5">
+            <Clock size={14} />
+            <span className="mono">{deliverable.due_date}</span>
+            <span style={{ color: daysLeft <= 3 ? "var(--urgent)" : "var(--text-tertiary)" }}>
+              · {daysLeft <= 0 ? "vencido" : `${daysLeft} días`}
+            </span>
+          </span>
+        </div>
+
+        {/* Progress */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="caption">{completedSteps} de {totalSteps} pasos</span>
+            <span className="caption mono">{Math.round(progress)}%</span>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {items.map((d: any) => {
-              const subjectColor = d.subject?.color || "#3E5C76";
-              const daysLeft = Math.ceil(
-                (new Date(d.due_date).getTime() - Date.now()) / (1000*60*60*24)
-              );
-              const dSteps = d.fragment_steps || [];
-              const dCompleted = dSteps.filter((s: any) => s.completed).length;
-              const dTotal = dSteps.length;
-              const dProgress = dTotal > 0 ? Math.round((dCompleted / dTotal) * 100) : 0;
-              const fases = (d.fases || []).sort((a: any, b: any) => a.orden - b.orden);
+          <div className="progress">
+            <div className="progress__fill" style={{ width: `${progress}%`, ["--subject-color" as any]: colors.main }} />
+          </div>
+        </div>
 
+        {/* Phase chips */}
+        {fases.length > 0 && (
+          <div className="flex gap-2 mt-6">
+            {fases.map((f: any) => {
+              const isDone = !!f.completada_at;
+              const isActive = !isDone && f.id === currentFase?.id;
               return (
                 <div
-                  key={d.id}
-                  className="rounded-xl overflow-hidden"
+                  key={f.id}
+                  className={`phase-chip ${isDone ? "phase-chip--done" : ""} ${isActive ? "phase-chip--active" : ""}`}
                   style={{
-                    backgroundColor: "var(--bg-surface)",
-                    border: "1px solid var(--bg-muted)",
+                    ["--subject-color" as any]: colors.main,
+                    ["--subject-bg" as any]: colors.bg,
                   }}
                 >
-                  <div className="flex">
-                    {/* Color band */}
-                    <div className="w-1" style={{ backgroundColor: subjectColor }} />
-
-                    <div className="flex-1 p-5">
-                      {/* Header */}
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p
-                            className="text-[10px] uppercase tracking-wider font-semibold"
-                            style={{ color: subjectColor }}
-                          >
-                            {d.subject?.name || "Sin asignatura"}
-                          </p>
-                          <h3
-                            className="text-base font-semibold mt-0.5"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {d.title}
-                          </h3>
-                        </div>
-                        <Link
-                          href={`/entregables/${d.id}`}
-                          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition shrink-0"
-                          style={{
-                            backgroundColor: subjectColor,
-                            color: "#fff",
-                          }}
-                        >
-                          Abrir con YLEOS
-                          <ChevronRight className="h-3 w-3" />
-                        </Link>
-                      </div>
-
-                      {/* Chips */}
-                      <div className="flex gap-2 mt-2">
-                        {d.weight > 0 && (
-                          <span
-                            className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                            style={{ backgroundColor: "var(--bg-muted)", color: "var(--text-secondary)" }}
-                          >
-                            {d.weight}%
-                          </span>
-                        )}
-                        <span
-                          className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                          style={{
-                            backgroundColor: daysLeft <= 3 ? "var(--urgent)" : daysLeft <= 7 ? "var(--warn)" : "var(--bg-muted)",
-                            color: daysLeft <= 7 ? "#fff" : "var(--text-secondary)",
-                          }}
-                        >
-                          {daysLeft <= 0 ? "Vencido" : `${daysLeft} días`}
-                        </span>
-                      </div>
-
-                      {/* Fases horizontal */}
-                      {fases.length > 0 && (
-                        <div className="flex items-center gap-3 mt-4">
-                          {fases.map((f: any, fi: number) => {
-                            const fSteps = f.fragment_steps || [];
-                            const fCompleted = fSteps.filter((s: any) => s.completed).length;
-                            const isDone = !!f.completada_at;
-                            const isActive = !isDone && fi === fases.findIndex((x: any) => !x.completada_at);
-
-                            return (
-                              <div key={f.id} className="flex items-center gap-2">
-                                <div className="flex flex-col items-center gap-1">
-                                  <div
-                                    className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold"
-                                    style={{
-                                      backgroundColor: isDone ? "var(--ok)" : isActive ? subjectColor : "var(--bg-muted)",
-                                      color: isDone || isActive ? "#fff" : "var(--text-muted)",
-                                      border: isActive ? `2px solid ${subjectColor}` : "none",
-                                    }}
-                                  >
-                                    {isDone ? "✓" : fi + 1}
-                                  </div>
-                                  <span
-                                    className="text-[9px] font-medium max-w-16 truncate text-center"
-                                    style={{
-                                      color: isDone ? "var(--ok)" : isActive ? "var(--text-primary)" : "var(--text-muted)",
-                                      textDecoration: isDone ? "line-through" : "none",
-                                    }}
-                                  >
-                                    {f.nombre}
-                                  </span>
-                                  {fSteps.length > 0 && (
-                                    <div className="flex gap-0.5">
-                                      {fSteps.map((s: any) => (
-                                        <div
-                                          key={s.id}
-                                          className="h-1 w-2 rounded-full"
-                                          style={{
-                                            backgroundColor: s.completed ? "var(--ok)" : "var(--bg-muted)",
-                                          }}
-                                        />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                {fi < fases.length - 1 && (
-                                  <ChevronRight className="h-3 w-3" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Progress bar */}
-                      {dTotal > 0 && (
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>
-                            <span>{dCompleted}/{dTotal} pasos</span>
-                            <span>{dProgress}%</span>
-                          </div>
-                          <div className="h-1 w-full rounded-full" style={{ backgroundColor: "var(--bg-muted)" }}>
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${dProgress}%`, backgroundColor: subjectColor }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                  <div className="phase-chip__num">
+                    {isDone ? "✓" : f.orden}
                   </div>
+                  <span className="phase-chip__label">{f.nombre}</span>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
 
-      {/* Next session CTA */}
-      {items.length > 0 && (
-        <div
-          className="rounded-xl p-6 text-center"
-          style={{
-            backgroundColor: "var(--focus-bg)",
-            border: "1px solid var(--bg-muted)",
-          }}
-        >
-          <p
-            className="text-[10px] uppercase tracking-wider font-semibold"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Próxima sesión sugerida
-          </p>
-          <p
-            className="text-lg font-semibold mt-1"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {(items[0] as any).title}
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-            {nextDays !== null && `${nextDays} días hasta entrega`}
-          </p>
+        {/* CTAs */}
+        <div className="flex gap-3 mt-8">
           <Link
-            href={`/entregables/${(items[0] as any).id}`}
-            className="inline-flex items-center gap-2 mt-4 rounded-lg px-6 py-3 font-semibold text-white transition"
-            style={{ backgroundColor: "var(--accent-primary)" }}
+            href={`/focus/new?stepId=${step.id}`}
+            className="btn btn-primary btn-lg"
+            style={{ backgroundColor: colors.main }}
           >
-            <Crosshair className="h-4 w-4" />
-            Iniciar sesión
+            Empezar sesión de 25 min
+            <ArrowRight size={16} />
+          </Link>
+          <Link href="/planificar" className="btn btn-ghost">
+            Otro
           </Link>
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function LaterCard({ deliverable }: { deliverable: any }) {
+  const colors = subjectColors(deliverable.subject?.color);
+  const daysLeft = Math.ceil(
+    (new Date(deliverable.due_date).getTime() - Date.now()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  return (
+    <Link
+      href={`/entregar/${deliverable.id}`}
+      className="card card--clickable card__banded flex items-center justify-between"
+      style={{
+        ["--subject-color" as any]: colors.main,
+        paddingLeft: "var(--space-8)",
+        paddingTop: "var(--space-5)",
+        paddingBottom: "var(--space-5)",
+      }}
+    >
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="subject-dot" style={{ ["--subject-color" as any]: colors.main }} />
+          <span className="label" style={{ color: colors.fg }}>
+            {deliverable.subject?.name}
+          </span>
+        </div>
+        <p className="mt-1" style={{ fontSize: "var(--fs-h3)", fontWeight: 500 }}>
+          {deliverable.title}
+        </p>
+      </div>
+      <div className="text-right caption">
+        <p className="mono">{deliverable.due_date}</p>
+        <p style={{ color: daysLeft <= 3 ? "var(--urgent)" : "var(--text-tertiary)" }}>
+          {daysLeft <= 0 ? "vencido" : `${daysLeft} días`}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="card riseup delay-600 text-center" style={{ padding: "var(--space-16) var(--space-8)" }}>
+      <h2>Empecemos con tu primer syllabus</h2>
+      <p className="caption mt-3" style={{ maxWidth: "440px", margin: "var(--space-3) auto 0" }}>
+        Sube un PDF de evaluación y YLEOS lo analiza, identifica trampas de la rúbrica y arma tu plan de trabajo.
+      </p>
+      <Link href="/planificar" className="btn btn-primary mt-6">
+        Subir syllabus
+        <ArrowRight size={16} />
+      </Link>
+    </div>
+  );
+}
+
+function AllDoneCard() {
+  return (
+    <div className="card riseup delay-600 text-center" style={{ padding: "var(--space-16) var(--space-8)" }}>
+      <h2>Todo al día</h2>
+      <p className="caption mt-3">No hay pasos pendientes hoy. Buen momento para planificar lo que viene.</p>
+      <Link href="/planificar" className="btn btn-secondary mt-6">
+        Ver semestre
+      </Link>
     </div>
   );
 }
