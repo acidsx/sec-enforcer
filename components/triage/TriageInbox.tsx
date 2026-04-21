@@ -55,19 +55,9 @@ export function TriageInbox() {
 
   async function handleConnectOutlook() {
     setLinking(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.linkIdentity({
-      provider: "azure",
-      options: {
-        scopes: "Mail.Read Mail.ReadWrite Mail.Send User.Read offline_access",
-        redirectTo: `${window.location.origin}/auth/callback?next=/triage`,
-      },
-    });
-    if (error) {
-      setSyncResult(`Error vinculando Outlook: ${error.message}`);
-      setLinking(false);
-    }
-    // On success, browser is redirected to Azure
+    // Flujo OAuth custom: redirige directo a Microsoft,
+    // callback guarda tokens en ms_graph_tokens
+    window.location.href = "/api/ms-graph/connect";
   }
 
   // Auto-cancel confirm after 3 seconds
