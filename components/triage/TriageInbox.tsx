@@ -11,7 +11,9 @@ import {
   Loader2,
   CheckCircle,
   Inbox,
+  LinkIcon,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { syncOutlookInbox, approveAndSend, discardDraft } from "@/app/(dashboard)/triage/actions";
 
 interface Draft {
@@ -35,10 +37,38 @@ export function TriageInbox() {
   const [editedBody, setEditedBody] = useState<Record<string, string>>({});
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [outlookConnected, setOutlookConnected] = useState<boolean | null>(null);
+  const [linking, setLinking] = useState(false);
 
   useEffect(() => {
     fetchDrafts();
+    checkOutlookConnection();
   }, []);
+
+  async function checkOutlookConnection() {
+    const res = await fetch("/api/ms-graph/status");
+    if (res.ok) {
+      const data = await res.json();
+      setOutlookConnected(data.connected);
+    }
+  }
+
+  async function handleConnectOutlook() {
+    setLinking(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.linkIdentity({
+      provider: "azure",
+      options: {
+        scopes: "Mail.Read Mail.ReadWrite Mail.Send User.Read offline_access",
+        redirectTo: `${window.location.origin}/auth/callback?next=/triage`,
+      },
+    });
+    if (error) {
+      setSyncResult(`Error vinculando Outlook: ${error.message}`);
+      setLinking(false);
+    }
+    // On success, browser is redirected to Azure
+  }
 
   // Auto-cancel confirm after 3 seconds
   useEffect(() => {
@@ -120,19 +150,53 @@ export function TriageInbox() {
             YLEOS clasifica y redacta respuestas para tus correos
           </p>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dim transition disabled:opacity-50"
-        >
-          {syncing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          Sincronizar Outlook
-        </button>
+        {outlookConnected === false ? (
+          <button
+            onClick={handleConnectOutlook}
+            disabled={linking}
+            className="btn btn-primary"
+          >
+            {linking ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LinkIcon className="h-4 w-4" />
+            )}
+            Conectar Outlook
+          </button>
+        ) : (
+          <button
+            onClick={handleSync}
+            disabled={syncing || outlookConnected === null}
+            className="btn btn-primary"
+          >
+            {syncing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Sincronizar Outlook
+          </button>
+        )}
       </div>
+
+      {outlookConnected === false && (
+        <div
+          className="card"
+          style={{
+            backgroundColor: "var(--bg-elevated)",
+            borderLeft: "3px solid var(--accent-info)",
+          }}
+        >
+          <p style={{ fontSize: "var(--fs-body)", fontWeight: 500 }}>
+            Outlook no está conectado
+          </p>
+          <p className="caption mt-1">
+            Para que YLEOS pueda leer y responder correos, vincula tu cuenta
+            Microsoft/Outlook con tu cuenta SEC. Click en "Conectar Outlook"
+            arriba.
+          </p>
+        </div>
+      )}
 
       {syncResult && (
         <div
