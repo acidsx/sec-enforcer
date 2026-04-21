@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Toggle } from "@/components/ajustes/Toggle";
 import { SettingsGroup, SettingRow } from "@/components/ajustes/SettingsGroup";
+import { useToast } from "@/components/shared/MicroToast";
 import { updatePreference } from "../actions";
 
 const NOTIF_KINDS = [
@@ -29,10 +30,14 @@ const CHANNELS = [
 
 export function NotificacionesView({ prefs: initialPrefs }: { prefs: any }) {
   const [prefs, setPrefs] = useState(initialPrefs);
+  const toast = useToast();
 
   async function save(key: string, value: any) {
     setPrefs((p: any) => ({ ...p, [key]: value }));
-    await updatePreference(key, value);
+    const result = await updatePreference(key, value);
+    if (!result.ok) {
+      toast.show(`Error al guardar ${key}: ${result.error}`, "warn");
+    }
   }
 
   async function setMatrixCell(kind: string, channel: string, value: boolean) {

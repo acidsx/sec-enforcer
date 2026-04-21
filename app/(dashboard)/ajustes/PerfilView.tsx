@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { User, GraduationCap, BookOpen, Clock, Trophy } from "lucide-react";
+import { useState } from "react";
+import { User, GraduationCap, BookOpen, Clock } from "lucide-react";
 import { SettingsGroup, SettingRow } from "@/components/ajustes/SettingsGroup";
+import { useToast } from "@/components/shared/MicroToast";
 import { updatePreference } from "./actions";
 
 interface PerfilViewProps {
@@ -15,12 +16,17 @@ interface PerfilViewProps {
 export function PerfilView({ user, role, prefs: initialPrefs, stats }: PerfilViewProps) {
   const [prefs, setPrefs] = useState(initialPrefs);
   const [savedField, setSavedField] = useState<string | null>(null);
+  const toast = useToast();
 
   async function save(key: string, value: any) {
     setPrefs((p: any) => ({ ...p, [key]: value }));
-    await updatePreference(key, value);
-    setSavedField(key);
-    setTimeout(() => setSavedField(null), 1500);
+    const result = await updatePreference(key, value);
+    if (result.ok) {
+      setSavedField(key);
+      setTimeout(() => setSavedField(null), 1500);
+    } else {
+      toast.show(`Error al guardar: ${result.error}`, "warn");
+    }
   }
 
   const emailInitials = user.email?.[0]?.toUpperCase() || "?";

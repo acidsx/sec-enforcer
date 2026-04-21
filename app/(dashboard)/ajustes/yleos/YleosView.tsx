@@ -9,6 +9,7 @@ import {
   Tile,
 } from "@/components/ajustes/SettingsGroup";
 import { Toggle } from "@/components/ajustes/Toggle";
+import { useToast } from "@/components/shared/MicroToast";
 import { updatePreference } from "../actions";
 
 const TONO_EJEMPLOS: Record<string, string> = {
@@ -28,10 +29,14 @@ export function YleosView({
   hoursWithYleos: number;
 }) {
   const [prefs, setPrefs] = useState(initialPrefs);
+  const toast = useToast();
 
   async function save(key: string, value: any) {
     setPrefs((p: any) => ({ ...p, [key]: value }));
-    await updatePreference(key, value);
+    const result = await updatePreference(key, value);
+    if (!result.ok) {
+      toast.show(`Error al guardar ${key}: ${result.error}`, "warn");
+    }
   }
 
   const tono = prefs.tono_yleos || "cercano";

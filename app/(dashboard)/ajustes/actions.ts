@@ -11,14 +11,19 @@ export async function updatePreference(key: string, value: any) {
 
   const { error } = await supabase
     .from("user_preferences")
-    .upsert({
-      user_id: user.id,
-      [key]: value,
-      updated_at: new Date().toISOString(),
-    });
+    .upsert(
+      {
+        user_id: user.id,
+        [key]: value,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
 
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/ajustes");
+  if (error) {
+    console.error(`[ajustes] updatePreference fail key=${key}:`, error.message);
+    return { ok: false, error: error.message };
+  }
   return { ok: true };
 }
 
@@ -29,13 +34,19 @@ export async function updateMultiplePreferences(updates: Record<string, any>) {
 
   const { error } = await supabase
     .from("user_preferences")
-    .upsert({
-      user_id: user.id,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    });
+    .upsert(
+      {
+        user_id: user.id,
+        ...updates,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[ajustes] updateMultiplePreferences fail:", error.message);
+    return { ok: false, error: error.message };
+  }
   return { ok: true };
 }
 
