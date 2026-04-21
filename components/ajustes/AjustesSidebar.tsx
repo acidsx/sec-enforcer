@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   User,
   Bell,
@@ -9,6 +10,7 @@ import {
   Palette,
   Lock,
   Shield,
+  LogOut,
 } from "lucide-react";
 
 const baseItems = [
@@ -23,10 +25,18 @@ const adminItem = { href: "/ajustes/admin", label: "Panel Admin", icon: Shield }
 
 export function AjustesSidebar({ role }: { role: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
 
   function isActive(href: string) {
     if (href === "/ajustes") return pathname === "/ajustes";
     return pathname === href;
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   }
 
   const items = role === "admin" ? [...baseItems, adminItem] : baseItems;
@@ -35,7 +45,7 @@ export function AjustesSidebar({ role }: { role: string }) {
     <aside
       className="shrink-0"
       style={{
-        width: "170px",
+        width: "180px",
         position: "sticky",
         top: "var(--space-6)",
       }}
@@ -66,6 +76,24 @@ export function AjustesSidebar({ role }: { role: string }) {
           );
         })}
       </nav>
+
+      {/* Logout siempre accesible */}
+      <div
+        className="mt-4 pt-4"
+        style={{ borderTop: "1px solid var(--bg-muted)" }}
+      >
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2.5 px-3 py-2 rounded-md transition-all w-full text-left"
+          style={{
+            color: "var(--text-tertiary)",
+            fontSize: "var(--fs-caption)",
+          }}
+        >
+          <LogOut size={14} />
+          Cerrar sesión
+        </button>
+      </div>
     </aside>
   );
 }

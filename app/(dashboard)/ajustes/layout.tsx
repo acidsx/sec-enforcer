@@ -14,10 +14,30 @@ export default async function AjustesLayout({
   return (
     <div className="space-y-8">
       <div className="riseup">
-        <p className="label">Ajustes</p>
-        <h1 className="mt-2" style={{ fontSize: "36px" }}>
-          Tu cuenta y preferencias
-        </h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="label">Ajustes</p>
+            <h1 className="mt-2" style={{ fontSize: "36px" }}>
+              Tu cuenta y preferencias
+            </h1>
+          </div>
+          <div
+            className="flex items-center gap-1.5 caption shrink-0 mt-2"
+            style={{ color: "var(--accent-success)" }}
+          >
+            <span
+              className="subject-dot subject-dot--pulse"
+              style={{ ["--subject-color" as any]: "var(--accent-success)" }}
+            />
+            Guardado automático
+          </div>
+        </div>
+        <p
+          className="caption mt-2"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          Los cambios se guardan al instante. Cierra sesión desde el menú lateral.
+        </p>
       </div>
 
       <div
